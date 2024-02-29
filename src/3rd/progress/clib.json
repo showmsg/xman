@@ -1,0 +1,10 @@
+{
+  "name": "progress",
+  "version": "0.4.0",
+  "repo": "jwerle/progress.c",
+  "description": "Simple progress bar display for the terminal",
+  "keywords": ["terminal", "tty", "progress"],
+  "license": "MIT",
+  "makefile": "Makefile",
+  "src": ["progress.h", "progress.c", "Makefile"]
+}

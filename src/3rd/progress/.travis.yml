@@ -1,0 +1,22 @@
+language: c
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created a
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "kF/CFYVefdvGgyLaGwcLH+q8a60WWGIUB7Jlx+B+Xjgk2Jd3Mebz3xevjWhv11eB/Y1oaotLDayMJc/xYiOnfVKTEztR00geqa6Oo7c9ZxN1/FWBip4JKlCo1l8O5vMj8E30r/AS61S7KW+5DRy5a+l7XcCltJHymXkpNuCTeHQ="
+
+addons:
+  coverity_scan:
+    project:
+      name: "hjanuschka/progress.h"
+      description: "clib progress bar"
+    notification_email: helmut@januschka.com
+    build_command_prepend: rm -vf test-progress
+    build_command:   make
+    branch_pattern: coverity_scan
+
+before_script:
+    - make
+
+script:
+    - ./test-progress

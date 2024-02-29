@@ -1,0 +1,9 @@
+{
+  "name": "throw",
+  "version": "0.0.1",
+  "repo": "jwerle/throw.h",
+  "description": "Create and throw errors easily",
+  "keywords": ["error", "exception", "throw"],
+  "license": "MIT",
+  "src": ["throw.h"]
+}
