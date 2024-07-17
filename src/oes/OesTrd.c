@@ -93,7 +93,8 @@ static inline int32 _OesApiSample_SendOrderReq(OesApiSessionInfoT *pOrdChannel,
 	}
 
 	iret = pOrder->exeStatus;
-	XPutOrderHashByLoc(pOrder);
+
+//	XPutOrderHashByLoc(pOrder);
 	slog_info(0,
 			"<<<<<< ReqOrder-idx[%lld-%s],产品类型[%u]--[%u-%s],策略单号[%lld]-账户[%s],本地单号[%d-%d],账户类型[%d], 买卖[%u], 订单类型[%d], 价格[%d->%.3f], 数量[%d],本地发送时间[%lld]",
 			pOrder->idx, request.customerId, pOrder->productType, ordReq.mktId,
@@ -145,7 +146,9 @@ static inline int32 _OesApiSample_SendOrderCancelReq(
 
 	//委托时间
 	pOrder->_sendLocTime = XGetClockTime();
+
 	pOrder->envno = OesApi_GetClEnvId(pOrdChannel);
+
 	pOrder->ordStatus = eXOrdStatusDefalut;
 
 	iret = OesApi_SendOrderCancelReq(pOrdChannel, &cancelReq);
@@ -159,7 +162,7 @@ static inline int32 _OesApiSample_SendOrderCancelReq(
 	}
 	iret = pOrder->exeStatus;
 
-	XPutOrderHashByLoc(pOrder);
+//	XPutOrderHashByLoc(pOrder);
 
 	slog_info(0,
 			"<<<<<< ReqCancel-[%u-%s],序号[%lld]-策略编号[%lld]-账户[%s-%s]: 撤单编号:[%d-%d],原编号:[%d-%lld],发单时间[%lld]",
@@ -860,6 +863,7 @@ XInt oestrd(XChar *customer, XNum cpuid) {
 			case eXSell:
 			case eXDeem:
 			case eXCSell:
+			case eXRedeem:
 				iret = _OesApiSample_SendOrderReq(&cliEnv.ordChannel,
 						pCurOrder);
 				l_pMonitorTd->iDealPos = pCurOrder->idx;

@@ -26,7 +26,6 @@
 #define CLR_WHITE    "\x1B[37m"
 #define CLR_RESET    "\033[0m"
 
-
 #define OES_COUNTER_SEC  "OES"
 #define XTP_COUNTER_SEC  "XTP"
 #define CTP_COUNTER_SEC  "CTP"
@@ -37,31 +36,52 @@ XVoid XExpPrint() {
 	XInt i = 0;
 	XProcInfoT *proc = NULL;
 	XIdx idx = -1;
-
+	XSnapshotT *pBigSnap = NULL, *pSmallSnap = NULL; //大盘指数和小盘股指数
 	pMonitor = XFndVMonitor();
 	if (NULL == pMonitor) {
 		return;
 	}
 
+	printf("                   量赢策略交易平台-Monitor (%s)                   \n", __XMAN_VERSION__);
+	printf("-----------------------------------------------------------------------\n");
+	printf("# 基础信息\n");
 	pMonitorMd = XFndVMdMonitor(eXExchSec);
 	if (NULL != pMonitorMd) {
 		printf("#交易日[%8d],交易所时间[%09d],敲门时间[%09d-%09d]\n", pMonitorMd->traday,
 				pMonitorMd->updateTime, pMonitorMd->_mktFirstTime,
 				XNsTime2I(pMonitorMd->_locFirstTime));
-		printf("%s涨[%4d]%s %s平[%4d]%s %s跌[%4d]%s\n", CLR_RED,
-				pMonitorMd->uppCnt, CLR_RESET, CLR_NORMAL, pMonitorMd->eqlCnt,
-				CLR_RESET, CLR_GREEN, pMonitorMd->lowCnt, CLR_RESET);
+
 	}
 
-	printf("委托总数        :\t %lld\n", pMonitor->iTOrder);
-	printf("成交总数        :\t %lld\n", pMonitor->iTTrade);
-	printf("持仓总数        :\t %lld\n", pMonitor->iTHold);
-	printf("证券总数        :\t %lld\n", pMonitor->iTStock);
-	printf("发行总数        :\t %lld\n", pMonitor->iTIssue);
-	printf("策略总数        :\t %lld\n", pMonitor->iTPlot);
-	printf("交易所快照数    :\t %lld\n", pMonitor->iTSnapshot);
-	printf("重构后行情数    :\t %s %lld %s\n", CLR_BLUE, pMonitor->iTOrderBook,
-	CLR_RESET);
+	printf("委托总数        :\t %lld\t成交总数        :\t %lld\n", pMonitor->iTOrder, pMonitor->iTTrade);
+	printf("持仓总数        :\t %lld\t策略总数        :\t %lld\n", pMonitor->iTHold, pMonitor->iTPlot);
+	printf("证券总数        :\t %lld\t发行总数        :\t %lld\n", pMonitor->iTStock, pMonitor->iTIssue);
+	printf("-----------------------------------------------------------------------\n");
+	printf("# 行情信息\n");
+	pBigSnap = XFndVSnapshotByKey(eXMarketSha, "000001");
+	pSmallSnap = XFndVSnapshotByKey(eXMarketSza, "399303");
+
+	if (NULL != pMonitorMd)
+	{
+		printf("%s涨[%4d]%s\t %s平[%4d]%s\t %s跌[%4d]%s\n",
+				CLR_RED, pMonitorMd->uppCnt, CLR_RESET,
+				CLR_NORMAL, pMonitorMd->eqlCnt, CLR_RESET,
+				CLR_GREEN, pMonitorMd->lowCnt, CLR_RESET);
+
+		printf("%s涨停[%4d]%s\t %s跌停[%4d]%s\t %s一字涨停[%4d]%s\t %s一字跌停[%4d]%s\n",
+								CLR_RED, pMonitorMd->upperCnt, CLR_RESET,
+								CLR_GREEN, pMonitorMd->lowerCnt, CLR_RESET,
+								CLR_RED, pMonitorMd->uperOpenCnt, CLR_RESET,
+								CLR_GREEN, pMonitorMd->lowerOpenCnt, CLR_RESET);
+	}
+	if(NULL != pBigSnap && NULL != pSmallSnap)
+	{
+		printf("上证指数:%.2f\t%.2f\t  国证2000:%.2f\t%.2f\n", pBigSnap->tradePx * 0.0001,
+				(pBigSnap->tradePx - pBigSnap->preClosePx) * 100.0 / pBigSnap->preClosePx, pSmallSnap->tradePx * 0.0001, (pSmallSnap->tradePx - pSmallSnap->preClosePx) * 100.0 / pSmallSnap->preClosePx);
+	}
+
+	printf("原始交易所快照数    :\t %lld\t重构后快照数    :\t %s %lld %s\n", pMonitor->iTSnapshot, CLR_BLUE, pMonitor->iTOrderBook, CLR_RESET);
+
 	if (NULL != pMonitorMd) {
 		printf(
 				"上海逐笔        :\t biz[%s%4d-%10lld%s] order[%s%10lld%s] trade[%s%10lld%s]\n",
@@ -75,6 +95,7 @@ XVoid XExpPrint() {
 				pMonitorMd->totalSzTrades, CLR_RESET);
 
 	}
+	printf("-----------------------------------------------------------------------\n");
 	idx = XGetAppCnt();
 	printf("# 进程 [%2lld]\n", idx);
 
@@ -85,10 +106,10 @@ XVoid XExpPrint() {
 			continue;
 		}
 		if (!XCheckPid(proc->pid)) {
-			printf("%d. [ %20s ] - <%d>\n", i + 1, proc->processName,
+			printf("%2d. [ %10s ] - <%d>\n", i + 1, proc->processName,
 					proc->pid);
 		} else {
-			printf("%d. [ %20s ] - <%sexit%s>\n", i + 1, proc->processName,
+			printf("%2d. [ %10s ] - <%sexit%s>\n", i + 1, proc->processName,
 			CLR_RED, CLR_RESET);
 		}
 	}
@@ -100,9 +121,11 @@ XVoid XMonitorPrint() {
 #ifdef __USED_NCURSES__	
 	XMonitorT *pMonitor = NULL;
 	XMonitorMdT *pMonitorMd = NULL;
-	XInt i = 0, iline = 0;
+	XInt i = 0, iline = 0, colLen = 0;
 	XProcInfoT *proc = NULL;
 	XIdx idx = -1;
+	XSnapshotT *pBigSnap = NULL, *pSmallSnap = NULL; //大盘指数和小盘股指数
+	XChar buf[100];
 
 	pMonitor = XFndVMonitor();
 	if (NULL == pMonitor) {
@@ -133,23 +156,48 @@ XVoid XMonitorPrint() {
 		attroff(COLOR_PAIR(2));
 
 		mvprintw(++iline, 2, "-----------------------------------------------------------------------");
+		mvprintw(++iline, 2,"# 基础信息[%09d]", XGetComMSec());
 		pMonitorMd = XFndVMdMonitor(eXExchSec);
 		if (NULL != pMonitorMd) {
 			mvprintw(++iline, 2,  "交易日[%8d],交易所时间[%09d],敲门时间[%09d-%09d]",
 			pMonitorMd->traday, pMonitorMd->updateTime, pMonitorMd->_mktFirstTime, XNsTime2I(pMonitorMd->_locFirstTime));
-
-			mvprintw(++iline, 2, "涨[%4d] 平[%4d] 跌[%4d]\n",  pMonitorMd->uppCnt,   pMonitorMd->eqlCnt, pMonitorMd->lowCnt);
-
 		}
 
-		mvprintw(++iline, 2,"委托总数    :\t %lld", pMonitor->iTOrder);
-		mvprintw(++iline, 2,"成交总数    :\t %lld", pMonitor->iTTrade);
-		mvprintw(++iline, 2,"持仓总数    :\t %lld", pMonitor->iTHold);
-		mvprintw(++iline, 2,"证券总数    :\t %lld", pMonitor->iTStock);
-		mvprintw(++iline, 2,"发行总数    :\t %lld", pMonitor->iTIssue);
-		mvprintw(++iline, 2,"策略总数    :\t %lld", pMonitor->iTPlot);
-		mvprintw(++iline, 2,"交易所快照数:\t %lld", pMonitor->iTSnapshot);
-		mvprintw(++iline, 2,"重构后行情数:\t %lld",  pMonitor->iTOrderBook);
+		mvprintw(++iline, 2,"委托总数    :\t %lld\t成交数量    :\t %lld", pMonitor->iTOrder, pMonitor->iTTrade);
+		mvprintw(++iline, 2,"持仓总数    :\t %lld\t策略总数    :\t %lld", pMonitor->iTHold, pMonitor->iTPlot);
+		mvprintw(++iline, 2,"证券总数    :\t %lld\t发行总数    :\t %lld", pMonitor->iTStock, pMonitor->iTIssue);
+
+		mvprintw(++iline, 2, "-----------------------------------------------------------------------");
+		mvprintw(++iline, 2,"# 行情信息");
+		if (NULL != pMonitorMd)
+		{
+			mvprintw(++iline, 2, "涨  [%4d]\t平  [%4d]\t跌  [%4d]\n",
+					pMonitorMd->uppCnt,   pMonitorMd->eqlCnt, pMonitorMd->lowCnt);
+
+			mvprintw(++iline, 2, "涨停[%4d]\t跌停[%4d]\t一字涨停[%4d]\t一字跌停[%4d]\n",
+								pMonitorMd->upperCnt,
+								pMonitorMd->lowerCnt, pMonitorMd->uperOpenCnt, pMonitorMd->lowerOpenCnt);
+		}
+		else
+		{
+			mvprintw(++iline, 2, "涨  [%4d]\t平  [%4d]\t跌  [%4d]\n", 0,   0, 0);
+
+			mvprintw(++iline, 2, "涨停[%4d]\t跌停[%4d]\t一字涨停[%4d]\t一字跌停[%4d]\n", 0, 0, 0, 0);
+		}
+
+		pBigSnap = XFndVSnapshotByKey(eXMarketSha, "000001");
+		pSmallSnap = XFndVSnapshotByKey(eXMarketSza, "399303");
+
+		if(NULL != pBigSnap && NULL != pSmallSnap)
+		{
+			mvprintw(++iline, 2, "上证指数       :%.2f(%.2f)\t国证2000     :%.2f(%.2f)\n", pBigSnap->tradePx * 0.0001,
+					(pBigSnap->tradePx - pBigSnap->preClosePx)* 100.0 / pBigSnap->preClosePx, pSmallSnap->tradePx * 0.0001, (pSmallSnap->tradePx - pSmallSnap->preClosePx) * 100.0 / pSmallSnap->preClosePx);
+		}
+		else
+		{
+			mvprintw(++iline, 2, "上证指数       :%.2f(%.2f)\t国证2000     :%.2f(%.2f)\n", 0.0, 0.0, 0.0, 0.0);
+		}
+		    mvprintw(++iline, 2, "原始交易所快照数:\t %lld\t重构后快照数  :\t %lld", pMonitor->iTSnapshot, pMonitor->iTOrderBook);
 		if(NULL != pMonitorMd)
 		{
 			mvprintw(++iline, 2,"上海逐笔    :\t biz[%4d-%10lld] order[%10lld] trade[%10lld]",pMonitorMd->shChannel, pMonitorMd->shBiz,  
@@ -161,9 +209,44 @@ XVoid XMonitorPrint() {
 		}
 		mvprintw(++iline, 2, "-----------------------------------------------------------------------");
 		idx = XGetAppCnt();
-		mvprintw(++iline, 2,"进程信息 [%2lld]",idx);
+		mvprintw(++iline, 2,"# 进程信息 [%2lld]",idx);
 
+		iline++;
 		for (i = 0; i < idx; i++) {
+			proc = XFndVAppById(i + 1);
+			// 判断进程数据是否存在
+			if (NULL == proc)
+			{
+				continue;
+			}
+
+			memset(buf, 0, sizeof(buf));
+
+
+
+			if(!XCheckPid(proc->pid))
+			{
+				sprintf(buf, "%2d.[%8s]-<%d>", i + 1, proc->processName, proc->pid);
+				mvprintw(iline, 2, "%s", buf);
+			}
+			else
+			{
+				sprintf(buf, "%2d.[%8s]-<exit>", i + 1, proc->processName);
+				attron(A_BLINK);
+				attron(COLOR_PAIR(3));
+				mvprintw(iline, 2, "%s", buf);
+				attroff(COLOR_PAIR(3));
+				attroff(A_BLINK);
+			}
+			colLen = strlen(buf);
+			///
+			i++;
+			if(i >= idx)
+			{
+				break;
+			}
+			memset(buf, 0, sizeof(buf));
+
 			proc = XFndVAppById(i + 1);
 			// 判断进程数据是否存在
 			if (NULL == proc)
@@ -172,16 +255,49 @@ XVoid XMonitorPrint() {
 			}
 			if(!XCheckPid(proc->pid))
 			{
-				mvprintw(++iline, 2,"%d. [ %20s ] - <%d>", i + 1, proc->processName, proc->pid);
+				sprintf(buf, " %2d.[%8s]-<%d>", i + 1, proc->processName, proc->pid);
+				mvprintw(iline, 2 + colLen, "%s", buf);
 			}
 			else
 			{
+				sprintf(buf, " %2d.[%8s]-<exit>", i + 1, proc->processName);
 				attron(A_BLINK);
 				attron(COLOR_PAIR(3));
-				mvprintw(++iline, 2,"%d. [ %20s ] - <exit>", i + 1, proc->processName);
+				mvprintw(iline, 2 + colLen,"%s", buf);
 				attroff(COLOR_PAIR(3));
 				attroff(A_BLINK);
 			}
+			colLen += strlen(buf);
+			/////
+			i++;
+			if(i >= idx)
+			{
+				break;
+			}
+			memset(buf, 0, sizeof(buf));
+
+			proc = XFndVAppById(i + 1);
+			// 判断进程数据是否存在
+			if (NULL == proc)
+			{
+				continue;
+			}
+			if(!XCheckPid(proc->pid))
+			{
+				sprintf(buf, " %2d.[%8s]-<%d>", i + 1, proc->processName, proc->pid);
+				mvprintw(iline, 2 + colLen, "%s", buf);
+			}
+			else
+			{
+				sprintf(buf, " %2d.[%8s]-<exit>", i + 1, proc->processName);
+				attron(A_BLINK);
+				attron(COLOR_PAIR(3));
+				mvprintw(iline, 2 + colLen,"%s", buf);
+				attroff(COLOR_PAIR(3));
+				attroff(A_BLINK);
+			}
+
+			iline++;
 		}
 		//TODO 统计行情中涨停的证券，跌停的证券；涨的股票数量，平的股票数量，跌的股票数量；一字板数量,封板数量，炸板数量
 		//TODO 涨幅靠前的10个板块及龙一龙二龙三票
@@ -272,8 +388,9 @@ XVoid XExpTrade(XChar *expFile) {
 	XIdx i;
 	XTradeT *pTrade = NULL;
 	FILE *fp = NULL;
-
+	XOrderT *pOrder = NULL;
 	XMonitorT *pMonitor = NULL;
+	XRSnapshotT *pSnapshot = NULL;
 
 	pMonitor = XFndVMonitor();
 	if (NULL == pMonitor) {
@@ -285,20 +402,28 @@ XVoid XExpTrade(XChar *expFile) {
 		return;
 	}
 	fprintf(fp,
-			"id,trdId,customerId,market,securityId,investid,trdSide,trdTime,trdQty,trdPrice,trdAmt,ordid\n");
+			"id,trdId,customerId,market,securityId,investid,trdSide,trdTime,trdQty,trdPrice,trdAmt,ordid,plotid,tradePx,zdf\n");
 	for (i = 0; i < pMonitor->iTTrade; i++) {
 		pTrade = XFndVTradeById(i + 1);
 		if (NULL == pTrade) {
 			continue;
 		}
-		fprintf(fp, "%lld,%lld,%s,%d,%s,%s,%d,%d,%d,%.3f,%.2f,%lld\n",
-				pTrade->idx, pTrade->trdId, pTrade->customerId, pTrade->market,
-				pTrade->securityId, pTrade->investId, pTrade->trdSide,
-				pTrade->trdTime, pTrade->trdQty,
-				eXBuy == pTrade->trdSide ?
-						-pTrade->trdPrice * XPRICE_DIV :
-						pTrade->trdPrice * XPRICE_DIV,
-				pTrade->trdAmt * XPRICE_DIV, pTrade->ordid);
+		pOrder = XFndVOrderByCnt(pTrade->customerId, pTrade->market, pTrade->ordid);
+		pSnapshot = XFndVRSnapshotByKey(pTrade->market, pTrade->securityId);
+
+			fprintf(fp, "%lld,%lld,%s,%d,%s,%s,%d,%d,%d,%.3f,%.2f,%lld,%lld,%.2f,%.2f\n",
+					pTrade->idx, pTrade->trdId, pTrade->customerId, pTrade->market,
+					pTrade->securityId, pTrade->investId, pTrade->trdSide,
+					pTrade->trdTime, pTrade->trdQty,
+					eXBuy == pTrade->trdSide ?
+							-pTrade->trdPrice * XPRICE_DIV :
+							pTrade->trdPrice * XPRICE_DIV,
+					pTrade->trdAmt * XPRICE_DIV, pTrade->ordid,
+					(NULL == pOrder ? 0 : pOrder->request.plotid),
+					(NULL == pSnapshot ? 0.0:pSnapshot->tradePx * 0.0001),
+					((NULL != pSnapshot) ?( (pSnapshot->tradePx - pSnapshot->preClosePx) * 100.0 / pSnapshot->preClosePx) : 0)
+				);
+
 
 	}
 
@@ -427,7 +552,7 @@ XVoid XExpStock(XChar *expFile) {
 	XIdx i;
 	XStockT *pStock = NULL;
 	FILE *fp = NULL;
-
+	XBlockT *pBlock = NULL;
 	XMonitorT *pMonitor = NULL;
 
 	pMonitor = XFndVMonitor();
@@ -442,14 +567,18 @@ XVoid XExpStock(XChar *expFile) {
 	fprintf(fp,
 			"id,market,securityId,securityName,secStatus,secType,subSecType,baseSecurityId,"
 					"prdType,isPriceLimit, isDayTrading,buyUnit,sellUnit,preClose,priceTick,HighPrice,LowPrice,"
-					"outstandingShare,publicfloatShare,maturityDate,lmtBuyMinQty,lmtBuyMaxQty,convPx\n");
+					"outstandingShare,publicfloatShare,maturityDate,lmtBuyMinQty,lmtBuyMaxQty,convPx,upperOfferOrdQty,"
+					"industry\n");
 	for (i = 0; i < pMonitor->iTStock; i++) {
 		pStock = XFndVStockById(i + 1);
 		if (NULL == pStock) {
 			continue;
 		}
+
+		pBlock = XFndVBlockById(pStock->industryIdx);
+
 		fprintf(fp,
-				"%lld,%d,%s,%s,%d,%d,%d,%s,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%lld,%lld,%d,%d,%d,%.3f\n",
+				"%lld,%d,%s,%s,%d,%d,%d,%s,%d,%d,%d,%d,%d,%.3f,%.3f,%.3f,%.3f,%lld,%lld,%d,%d,%d,%.3f,%lld,%s\n",
 				pStock->idx, pStock->market, pStock->securityId,
 				pStock->securityName, pStock->secStatus, pStock->secType,
 				pStock->subSecType, pStock->baseSecurityId, pStock->prdType,
@@ -459,7 +588,8 @@ XVoid XExpStock(XChar *expFile) {
 				pStock->lowerPrice * XPRICE_DIV, pStock->outstandingShare,
 				pStock->publicfloatShare, pStock->maturityDate,
 				pStock->lmtBuyMinQty, pStock->lmtBuyMaxQty,
-				pStock->convPx * XPRICE_DIV);
+				pStock->convPx * XPRICE_DIV, pStock->upperOfferOrdQty,
+				(NULL == pBlock ? "":pBlock->blockName));
 	}
 
 	fclose(fp);
@@ -520,7 +650,7 @@ XVoid XExpSnapshot(XChar *expFile) {
 	fprintf(fp,
 			"id,tradeDate,market,securityId,secStatus,preClosePx,openPx,highPx,lowPx,tradePx,numTrades,"
 					"volumeTrade,amountTrade,updateTime,locTime,ask5,askqty5,ask4,askqty4,ask3,askqty3,ask2,askqty2,"
-					"ask1,askqty1,bid1,bidqty1,bid2,bidqty2,bid3,bidqty3,bid4,bidqty4,bid5,bidqty5,gapTime(ns)\n");
+					"ask1,askqty1,bid1,bidqty1,bid2,bidqty2,bid3,bidqty3,bid4,bidqty4,bid5,bidqty5,gapTime(ns),iopv\n");
 	for (i = 0; i < pMonitor->iTSnapshot; i++) {
 
 		pSnapshot = XFndVSnapshotById(i + 1);
@@ -529,7 +659,7 @@ XVoid XExpSnapshot(XChar *expFile) {
 		}
 		fprintf(fp,
 				"%lld,%d,%d,%s,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%lld,%.2f,%d,%lld,%.3f,%lld,%.3f,%lld,%.3f,"
-						"%lld,%.3f,%lld,%.3f,%lld,%.3f,%lld,%.3f,%lld,%.3f,%lld,%.3f,%lld,%.3f,%lld,%lld\n",
+						"%lld,%.3f,%lld,%.3f,%lld,%.3f,%lld,%.3f,%lld,%.3f,%lld,%.3f,%lld,%.3f,%lld,%lld,%.3f\n",
 				pSnapshot->idx, pSnapshot->traday, pSnapshot->market,
 				pSnapshot->securityId, pSnapshot->secStatus,
 				pSnapshot->preClosePx * XPRICE_DIV,
@@ -548,7 +678,9 @@ XVoid XExpSnapshot(XChar *expFile) {
 				pSnapshot->bidqty[2], pSnapshot->bid[3] * XPRICE_DIV,
 				pSnapshot->bidqty[3], pSnapshot->bid[4] * XPRICE_DIV,
 				pSnapshot->bidqty[4],
-				pSnapshot->_genTime - pSnapshot->_recvTime);
+				pSnapshot->_genTime - pSnapshot->_recvTime,
+				pSnapshot->IOPV * 0.0001
+			);
 
 	}
 
@@ -597,7 +729,8 @@ XVoid XExpKSnap(XChar *expFile) {
 	fclose(fp);
 }
 
-XVoid XExpK1(XChar *expFile) {
+//导出最近K1数据
+XVoid XExpKLine1(XChar *expFile) {
 	FILE *fp = NULL;
 	XMonitorT *pMonitor = NULL;
 	XIdx cursor = -1, i;
@@ -612,38 +745,47 @@ XVoid XExpK1(XChar *expFile) {
 
 	fp = fopen(expFile, "w");
 
-	fprintf(fp, "market,security,time1,close1,time2,close2,time3,close3,time4,close4,time5,close5\n");
+	fprintf(fp,
+			"date,time,market,security,open,high,low,close,volume,amt,numtrades,cursor,idx\n");
 	for (i = 0; i < pMonitor->iTOrderBook; i++) {
 		pRSnapshot = XFndVRSnapshotById(i + 1);
 		if (NULL == pRSnapshot) {
 			continue;
 		}
 
-		icnt = 0;
-		fprintf(fp, "%d,%s", pRSnapshot->market, pRSnapshot->securityId);
 		klines = GetKlinesByBlock(pRSnapshot->idx, 0);
 		//遍历行情,s
-		cursor = (SNAPSHOT_K1_CNT + pRSnapshot->kcursor1 - 5 + icnt)
-				% SNAPSHOT_K1_CNT;
-		while (cursor >= 0) {
-			if (icnt >= 5) {
-				break;
+		icnt = 0;
+		while (icnt < SNAPSHOT_K1_CNT) {
+
+			cursor = (SNAPSHOT_K1_CNT + pRSnapshot->kcursor1 + icnt) & (SNAPSHOT_K1_CNT - 1);
+			if(klines[cursor].updateTime != 0)
+			{
+				fprintf(fp, "%d,%d,%d,%s,%d,%d,%d,%d,%lld,%lld,%d,%lld,%lld\n",
+						klines[cursor].traday,
+						klines[cursor].updateTime,
+						pRSnapshot->market,
+						pRSnapshot->securityId,
+						klines[cursor].open,
+						klines[cursor].high,
+						klines[cursor].low,
+						klines[cursor].close,
+						klines[cursor].qty,
+						klines[cursor].amt,
+						klines[cursor].numTrades,
+//						klines[cursor].predictPx,
+						cursor,
+						pRSnapshot->idx
+					);
 			}
-
-			fprintf(fp, ",%d,%d", klines[cursor].updateTime,
-					klines[cursor].close);
 			icnt++;
-
-			cursor = (SNAPSHOT_K1_CNT + pRSnapshot->kcursor1 - 5 + icnt)
-					% SNAPSHOT_K1_CNT;
 		}
-		fprintf(fp, "\n");
 	}
 
 	fclose(fp);
 }
 
-XVoid XExpK5(XChar *expFile) {
+XVoid XExpKLine5(XChar *expFile) {
 	FILE *fp = NULL;
 	XMonitorT *pMonitor = NULL;
 	XIdx cursor = -1, i;
@@ -657,37 +799,42 @@ XVoid XExpK5(XChar *expFile) {
 	}
 
 	fp = fopen(expFile, "w");
-	fprintf(fp, "market,security");
-	icnt = 0;
-	for(icnt = 0; icnt < 60; icnt++)
-	{
-		fprintf(fp, ",time%d,close%d", icnt + 1, icnt + 1);
-	}
-	fprintf(fp, "\n");
+
+	fprintf(fp,
+			"date,time,market,security,open,high,low,close,volume,amt,numtrades,cursor,idx\n");
 	for (i = 0; i < pMonitor->iTOrderBook; i++) {
 		pRSnapshot = XFndVRSnapshotById(i + 1);
 		if (NULL == pRSnapshot) {
 			continue;
 		}
 
-		icnt = 0;
-		fprintf(fp, "%d,%s", pRSnapshot->market, pRSnapshot->securityId);
 		klines = GetKlinesByBlock(pRSnapshot->idx, 1);
-		//遍历行情,从最远的开始写
-		cursor = (SNAPSHOT_K5_CNT + pRSnapshot->kcursor5 - 60 + icnt)
-				% SNAPSHOT_K5_CNT;
-		while (cursor >= 0) {
-			if (icnt >= 60) {
-				break;
-			}
-			fprintf(fp, ",%d,%d", klines[cursor].updateTime,
-					klines[cursor].close);
+		//遍历行情,s
+		icnt = 0;
+		while (icnt < SNAPSHOT_K5_CNT) {
 
+			cursor = (SNAPSHOT_K5_CNT + pRSnapshot->kcursor5 + icnt) & (SNAPSHOT_K5_CNT - 1);
+			if(klines[cursor].updateTime != 0)
+			{
+				fprintf(fp, "%d,%d,%d,%s,%d,%d,%d,%d,%lld,%lld,%d,%lld,%lld\n",
+						klines[cursor].traday,
+						klines[cursor].updateTime,
+						pRSnapshot->market,
+						pRSnapshot->securityId,
+						klines[cursor].open,
+						klines[cursor].high,
+						klines[cursor].low,
+						klines[cursor].close,
+						klines[cursor].qty,
+						klines[cursor].amt,
+						klines[cursor].numTrades,
+//						klines[cursor].predictPx,
+						cursor,
+						pRSnapshot->idx
+					);
+			}
 			icnt++;
-			cursor = (SNAPSHOT_K5_CNT + pRSnapshot->kcursor5 - 60 + icnt)
-					% SNAPSHOT_K5_CNT;
 		}
-		fprintf(fp, "\n");
 	}
 
 	fclose(fp);
@@ -810,6 +957,8 @@ XVoid XExpRSnapshot(XChar *expFile) {
 	XRSnapshotT *pRSnapshot = NULL;
 	FILE *fp = NULL;
 	XMonitorT *pMonitor = NULL;
+	XBlockT* pBlock = NULL;
+	XStockT* pStock = NULL;
 
 	pMonitor = XFndVMonitor();
 	if (NULL == pMonitor) {
@@ -826,7 +975,8 @@ XVoid XExpRSnapshot(XChar *expFile) {
 					"askcqty1,bid1,bidqty1,bidcqty1,bid2,bidqty2,bidcqty2,bid3,bidqty3,bidcqty3,bid4,bidqty4,bidcqty4,bid5,bidqty5,bidcqty5,"
 					"gapTimes(ns),_channel,version,upperPx,lowerPx,driveAskPx,driveBidPx,"
 					"totalBidQty,totalAskQty,curUpBidQty,curUpBidCQty,bigBuyOrdAmt,bigSellOrdAmt,bigBuyOrdQty,bigSellOrdQty,bigBuyTrdAmt,bigSellTrdAmt,"
-					"driveBuyAmt,driverSellTrdAmt,totalBuyOrdCnt,totalSellOrdCnt,sealTime,pchg,upperOfferOrdQty,upperOfferOrdCnt,bigBuyOrdCnt,bigSellOrdCnt\n");
+					"driveBuyAmt,driverSellTrdAmt,totalBuyOrdCnt,totalSellOrdCnt,sealTime,pchg,upperOfferOrdQty,"
+					"upperOfferOrdCnt,bigBuyOrdCnt,bigSellOrdCnt,industry\n");
 	for (i = 0; i < pMonitor->iTOrderBook; i++) {
 
 		pRSnapshot = XFndVRSnapshotById(i + 1);
@@ -834,11 +984,19 @@ XVoid XExpRSnapshot(XChar *expFile) {
 			continue;
 		}
 
+		pStock = XFndVStockByKey(pRSnapshot->market, pRSnapshot->securityId);
+		if(NULL != pStock)
+		{
+			pBlock = XFndVBlockById(pStock->industryIdx);
+		}
+
 		fprintf(fp,
 				"%lld,%d,%d,%s,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%lld,%.2f,%d,%f,%f,"
 						"%.3f,%lld,%lld,%.3f,%lld,%lld,%.3f,%lld,%lld,%.3f,%lld,%lld,%.3f,"
 						"%lld,%lld,%.3f,%lld,%lld,%.3f,%lld,%lld,%.3f,%lld,%lld,%.3f,%lld,"
-						"%lld,%.3f,%lld,%lld,%lld, %d,%lld,%.3f,%.3f,%.3f,%.3f,%lld,%lld,%lld,%lld,%.2f,%.2f,%lld,%lld,%.2f,%.2f,%.2f,%.2f,%d,%d,%d,%.2f,%lld,%d,%d,%d\n",
+						"%lld,%.3f,%lld,%lld,%lld, %d,%lld,%.3f,%.3f,%.3f,%.3f,%lld,%lld,%lld,"
+						"%lld,%.2f,%.2f,%lld,%lld,%.2f,%.2f,%.2f,%.2f,%d,%d,%d,%.2f,%lld,%d,%d,"
+						"%d,%s\n",
 				pRSnapshot->idx, pRSnapshot->traday, pRSnapshot->market,
 				pRSnapshot->securityId, pRSnapshot->secStatus,
 				pRSnapshot->preClosePx * XPRICE_DIV,
@@ -883,7 +1041,8 @@ XVoid XExpRSnapshot(XChar *expFile) {
 				(pRSnapshot->tradePx - pRSnapshot->preClosePx) * 100.0
 						/ pRSnapshot->preClosePx, pRSnapshot->upperOfferOrdQty,
 				pRSnapshot->upperOfferOrdCnt, pRSnapshot->bigBuyOrdCnt,
-				pRSnapshot->bigSellOrdCnt);
+				pRSnapshot->bigSellOrdCnt,
+				(NULL == pBlock ? "":pBlock->blockName));
 
 	}
 
@@ -938,12 +1097,10 @@ XVoid XExpHisSnapshot(XChar *expFile) {
 		}
 
 		fprintf(fp,
-				"%d,%d,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%d,%lld,%.2f,%lld,%d,%d,%lld,%d,%lld,%d,%lld,%d,%lld,%d,%lld,%d\n",
+				"%d,%d,%s,%d,%d,%d,%d,%d,%d,%lld,%.2f,%lld,%d,%d,%lld,%d,%lld,%d,%lld,%d,%lld,%d,%lld,%d\n",
 				pRSnapshot->traday, pRSnapshot->market, pRSnapshot->securityId,
-				pRSnapshot->preClosePx * XPRICE_DIV,
-				pRSnapshot->openPx * XPRICE_DIV,
-				pRSnapshot->highPx * XPRICE_DIV, pRSnapshot->lowPx * XPRICE_DIV,
-				pRSnapshot->tradePx * XPRICE_DIV, pRSnapshot->numTrades,
+				pRSnapshot->preClosePx, pRSnapshot->openPx, pRSnapshot->highPx,
+				pRSnapshot->lowPx, pRSnapshot->tradePx, pRSnapshot->numTrades,
 				pRSnapshot->volumeTrade, pRSnapshot->amountTrade * XPRICE_DIV,
 				pStock->ysVolumeTrade, multVol, upperTimes,
 				pRSnapshot->upperBidOrdQty, pRSnapshot->upperBidOrdCnt,
@@ -974,14 +1131,14 @@ XVoid XExpStrategy(XChar *expFile) {
 		return;
 	}
 	fprintf(fp,
-			"id,plotid, frontid, market, securityId, bs, status, investId, ordPx, confPx, qtyType, ordQty,money, askQty, buyMoney, cdl, buyCtrlMoney, ordGapTime,ctrGapTime,sign,beginTime, endTime, isUpperStop, isCtrlStop, isAutoCtrl, upperQtyMulty, upperQtyMultyMin,nxtCtrlMoney,followCtrlMoney,ctrlUpRatio\r\n");
+			"id,plotid, frontid, market, securityId, bs, status, investId, ordPx, confPx, qtyType, ordQty,money, askQty, buyMoney, cdl, buyCtrlMoney, ordGapTime,ctrGapTime,sign,beginTime, endTime, isUpperStop, isCtrlStop, isAutoCtrl, upperQtyMulty, upperQtyMultyMin,nxtCtrlMoney,followCtrlMoney,ctrlUpRatio,buyLocTime,sellLocTime\r\n");
 	for (i = 0; i < pMonitor->iTPlot; i++) {
 		pStrategy = XFndVStrategyById(i + 1);
 		if (NULL == pStrategy) {
 			continue;
 		}
 		fprintf(fp,
-				"%lld,%lld, %d, %d, %s, %d, %d, %s, %d, %d, %d,%d,%.2f,%lld,%.2f,%d,%.2f, %lld,%lld, %d, %d,%d, %d,%d,%d,%d,%d,%.2f,%.2f,%d\r\n",
+				"%lld,%lld, %d, %d, %s, %d, %d, %s, %d, %d, %d,%d,%.2f,%lld,%.2f,%d,%.2f, %lld,%lld, %d, %d,%d, %d,%d,%d,%d,%d,%.2f,%.2f,%d,%lld,%lld\r\n",
 				pStrategy->idx, pStrategy->plotid, pStrategy->plot.frontId,
 				pStrategy->setting.market, pStrategy->setting.securityId,
 				pStrategy->setting.bsType, pStrategy->status,
@@ -998,7 +1155,8 @@ XVoid XExpStrategy(XChar *expFile) {
 				pStrategy->setting.upperQtyMultyMin,
 				pStrategy->setting.nxtCtrlMoney * 1.0,
 				pStrategy->setting.followCtrlMoney * 1.0,
-				pStrategy->plot.ctrlUpRatio);
+				pStrategy->plot.ctrlUpRatio, pStrategy->_buyLocTime,
+				pStrategy->_sellLocTime);
 	}
 
 	fclose(fp);
@@ -1146,7 +1304,7 @@ XVoid XExpPriceLevel(XChar market, XChar *securityId, XInt speed) {
 	XInt iCount = 0;
 	XIdx buyidx, sellidx;
 
-	pOrderBook = XFndVOrderBook(market, securityId);
+	pOrderBook = XFndVOrderBookByKey(market, securityId);
 	if (NULL == pOrderBook) {
 		return;
 	}
@@ -1228,7 +1386,7 @@ XVoid XPLevelPrint(XChar market, XChar *securityId, XInt speed) {
 	{
 		clear();
 
-		pOrderBook = XFndVOrderBook(market, securityId);
+		pOrderBook = XFndVOrderBookByKey(market, securityId);
 		if(NULL == pOrderBook)
 		{
 			continue;
@@ -1285,9 +1443,9 @@ XVoid XPLevelPrint(XChar market, XChar *securityId, XInt speed) {
 		attroff(COLOR_PAIR(3));
 
 		attron(COLOR_PAIR(2));
-		mvprintw(++iline, 2, "[%-d-%d-%s] == %4.3f  %d,涨跌幅[%2.2f\%]主买[%4.3f],主卖[%4.3f],成交笔数[%8d],成交数量[%lld],净流入[%8.2f],累计委买金额[%8.2f],累计委卖金额[%8.2f]", 
+		mvprintw(++iline, 2, "[%-d-%d-%s]  %4.3f  %d,涨跌幅[%2.2f\%],成交笔数[%8d],成交数量[%lld],净流入[%8.2f],累计委买金额[%8.2f],累计委卖金额[%8.2f]",
 		snapshot._channel, snapshot.market, snapshot.securityId, snapshot.tradePx * 0.0001, snapshot.updateTime,  (snapshot.tradePx - snapshot.preClosePx) * 100.0 / snapshot.preClosePx,
-		snapshot.driveBidPx * 0.0001, snapshot.driveAskPx * 0.0001, snapshot.numTrades, snapshot.volumeTrade,
+		 snapshot.numTrades, snapshot.volumeTrade,
 		(snapshot.outsideTrdAmt - snapshot.insideTrdAmt) * 0.0001, snapshot.totalBuyOrdAmt * 0.0001, snapshot.totalSellOrdAmt * 0.0001);
 		attroff(COLOR_PAIR(2));
 
@@ -1474,7 +1632,7 @@ XVoid XPRLevelPrint(XChar market, XChar *securityId, XInt speed) {
 	{
 		clear();
 
-		pOrderBook = XFndVOrderBook(market, securityId);
+		pOrderBook = XFndVOrderBookByKey(market, securityId);
 		if(NULL == pOrderBook)
 		{
 			continue;
@@ -1525,9 +1683,9 @@ XVoid XPRLevelPrint(XChar market, XChar *securityId, XInt speed) {
 
 		attron(COLOR_PAIR(2));
 
-		mvprintw(++iline, 2, "[%-d-%d-%s] == %4.3f  %d,涨跌幅[%2.2f\%],主买[%4.3f],主卖[%4.3f],成交笔数[%8d],成交数量[%lld],净流入[%8.2f],累计委托买入金额[%8.2f],累计委托卖出金额[%8.2f]", 
+		mvprintw(++iline, 2, "[%-d-%d-%s] %4.3f  %d,涨跌幅[%2.2f\%],成交笔数[%8d],成交数量[%lld],净流入[%8.2f],累计委托买入金额[%8.2f],累计委托卖出金额[%8.2f]",
 		snapshot._channel, snapshot.market, snapshot.securityId, snapshot.tradePx * 0.0001, snapshot.updateTime, (snapshot.tradePx - snapshot.preClosePx) * 100.0 / snapshot.preClosePx,
-		snapshot.driveBidPx * 0.0001, snapshot.driveAskPx * 0.0001, snapshot.numTrades, snapshot.volumeTrade,
+		snapshot.numTrades, snapshot.volumeTrade,
 		(snapshot.outsideTrdAmt - snapshot.insideTrdAmt) * 0.0001, snapshot.totalBuyOrdAmt * 0.0001, snapshot.totalSellOrdAmt * 0.0001);
 		attroff(COLOR_PAIR(2));
 
@@ -1575,44 +1733,231 @@ XVoid XPRLevelPrint(XChar market, XChar *securityId, XInt speed) {
 #endif
 }
 
-int read_kline(const char *trade_file, XInt knum) {
+XInt XReadKLine1(XChar* file)
+{
+	XInt iret = -1;
 	const char *col = NULL;
 	XCsvHandleT handle;
-	XInt iret = -1, i = 0;
-	XStockT *pStock = NULL;
-	XInt market = 0;
-	XChar *securityId = NULL;
-	XRSnapshotT *pSnapshot, snapshot;
-	XIdx idx = -1;
+	XChar market = 0;
+	XChar* pSecurityId = NULL;
+	XStockT* pStock  = NULL;
+
+	XRSnapshotT *pSnapshot;
 	XKLineT *kline = NULL;
 
-	iret = XCsvOpen(&handle, trade_file);
+	iret = XCsvOpen(&handle, file);
 	if (iret) {
-		slog_error(0, "文件不存在[%s]", trade_file);
+		slog_error(0, "文件不存在[%s]", file);
 		return (0);
 	}
-
-	while ((!XCsvReadLine(&handle))) {
+	//日期,时间,市场,证券代码,开,高,低,收,笔数,成交金额,预测价格
+	while ((!XCsvReadLine(&handle)))
+	{
 		if (handle.colSize < 2) {
 			slog_error(0, "列数错误");
 			break;
 		}
-		col = handle.GetFieldByCol(&handle, 0);
+		col = handle.GetFieldByCol(&handle, 2);
 		if (col) {
 			market = atoi(col);
 		}
-		securityId = handle.GetFieldByCol(&handle, 1);
-		if (NULL == securityId) {
+
+		pSecurityId = handle.GetFieldByCol(&handle, 3);
+
+		if(NULL == pSecurityId)
+		{
 			continue;
 		}
-		pStock = XFndVStockByKey(market, securityId);
+
+		pStock = XFndVStockByKey(market, pSecurityId);
 		if (NULL == pStock) {
 			continue;
 		}
 
-		idx = XFndOrderBook(market, securityId);
+
+#ifdef __XMAN_FAST_REBUILD__
+		XIdx idx = -1;
+		XRSnapshotT snapshot;
+
+		idx = XFndOrderBook(market, pSecurityId);
 		if (idx < 1) {
-			idx = XPutOrderBookHash(market, securityId);
+			idx = XPutOrderBookHash(market, pSecurityId);
+		}
+		memset(&snapshot, 0, sizeof(XRSnapshotT));
+		// 存储涨跌停价
+		pSnapshot = XFndVRSnapshotById(idx);
+		if (NULL != pSnapshot) {
+			memcpy(&snapshot, pSnapshot, XRSNAPSHOT_SIZE);
+		} else {
+			snapshot.idx = idx;
+			snapshot.market = market;
+			memcpy(snapshot.securityId, pStock->securityId, SECURITYID_LEN);
+
+			snapshot.upperPx = pStock->upperPrice;
+			snapshot.lowerPx = pStock->lowerPrice;
+			snapshot.preClosePx = pStock->preClose;
+			snapshot.secStatus = pStock->secStatus;
+		}
+
+		kline = GetKlinesByBlock(snapshot.idx, 0);
+
+		col = handle.GetFieldByCol(&handle, 0);
+		kline[snapshot.kcursor1].traday = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 1);
+
+		kline[snapshot.kcursor1].updateTime = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 4);
+		//开盘价
+		kline[snapshot.kcursor1].open = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 5);
+		//最高价
+		kline[snapshot.kcursor1].high = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 6);
+		//最低价
+		kline[snapshot.kcursor1].low = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 7);
+		//收盘价
+		kline[snapshot.kcursor1].close = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 8);
+		//成交数量
+		kline[snapshot.kcursor1].qty = atol(col);
+		//成交金额
+		col = handle.GetFieldByCol(&handle, 9);
+		kline[snapshot.kcursor1].amt = atol(col);
+
+		//成交笔数
+		col = handle.GetFieldByCol(&handle, 10);
+		kline[snapshot.kcursor1].numTrades = atoi(col);
+		//预测价
+
+		snapshot.kcursor1++;
+		XPutOrUpdVRSnapshot(&snapshot);
+#else
+		XOrderBookT* pOrderBook = NULL, orderBook;
+
+		pOrderBook = XFndVOrderBookByKey(market, pSecurityId);
+
+		if(NULL == pOrderBook)
+		{
+			memset(&orderBook, 0, sizeof(XOrderBookT));
+			orderBook.snapshot.market = market;
+			memcpy (orderBook.snapshot.securityId, pSecurityId,  SECURITYID_LEN);
+			pStock = XFndVStockByKey(market, pSecurityId);
+			if(NULL != pStock)
+			{
+				orderBook.snapshot.preClosePx = pStock->preClose;
+				orderBook.snapshot.upperPx = pStock->upperPrice;
+				orderBook.snapshot.lowerPx = pStock->lowerPrice;
+			}
+			XPutOrdUpdVOrderBookByKey(&orderBook);
+
+			pOrderBook = XFndVOrderBookByKey(market, pSecurityId);
+			if(NULL == pOrderBook)
+			{
+				continue;
+			}
+			pOrderBook->snapshot.idx = pOrderBook->idx;
+		}
+		pSnapshot = &(pOrderBook->snapshot);
+
+		kline = GetKlinesByBlock(pSnapshot->idx, 0);
+
+		col = handle.GetFieldByCol(&handle, 0);
+		kline[pSnapshot->kcursor1].traday = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 1);
+
+		kline[pSnapshot->kcursor1].updateTime = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 4);
+		//开盘价
+		kline[pSnapshot->kcursor1].open = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 5);
+		//最高价
+		kline[pSnapshot->kcursor1].high = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 6);
+		//最低价
+		kline[pSnapshot->kcursor1].low = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 7);
+		//收盘价
+		kline[pSnapshot->kcursor1].close = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 8);
+		//成交数量
+		kline[pSnapshot->kcursor1].qty = atol(col);
+		//成交金额
+		col = handle.GetFieldByCol(&handle, 9);
+		kline[pSnapshot->kcursor1].amt = atol(col);
+
+		//成交笔数
+		col = handle.GetFieldByCol(&handle, 10);
+		kline[pSnapshot->kcursor1].numTrades = atoi(col);
+
+		pSnapshot->kcursor1++;
+
+#endif
+
+	}
+	return (0);
+}
+
+XInt XReadKLine5(XChar* file)
+{
+	XInt iret = -1;
+	const char *col = NULL;
+	XCsvHandleT handle;
+	XChar market = 0;
+	XChar* pSecurityId = NULL;
+	XStockT* pStock  = NULL;
+	XRSnapshotT *pSnapshot;
+	XKLineT *kline = NULL;
+
+	iret = XCsvOpen(&handle, file);
+	if (iret) {
+		slog_error(0, "文件不存在[%s]", file);
+		return (0);
+	}
+	//日期,时间,市场,证券代码,开,高,低,收,笔数,成交金额,预测价格
+	while ((!XCsvReadLine(&handle)))
+	{
+		if (handle.colSize < 2) {
+			slog_error(0, "列数错误");
+			break;
+		}
+		col = handle.GetFieldByCol(&handle, 2);
+		if (col) {
+			market = atoi(col);
+		}
+
+		pSecurityId = handle.GetFieldByCol(&handle, 3);
+
+		if(NULL == pSecurityId)
+		{
+			continue;
+		}
+
+		pStock = XFndVStockByKey(market, pSecurityId);
+		if (NULL == pStock) {
+			continue;
+		}
+
+
+#ifdef __XMAN_FAST_REBUILD__
+		XIdx idx = -1;
+		XRSnapshotT snapshot;
+
+		idx = XFndOrderBook(market, pSecurityId);
+		if (idx < 1) {
+			idx = XPutOrderBookHash(market, pSecurityId);
 		}
 
 		memset(&snapshot, 0, sizeof(XRSnapshotT));
@@ -1629,52 +1974,122 @@ int read_kline(const char *trade_file, XInt knum) {
 			snapshot.lowerPx = pStock->lowerPrice;
 			snapshot.preClosePx = pStock->preClose;
 			snapshot.secStatus = pStock->secStatus;
-
 		}
 
-		if (knum == 5) {
-			kline = GetKlinesByBlock(snapshot.idx, 0);
-			snapshot.kcursor1 = 0;
-			for (i = 2; i < 2 * knum + 2; i++) {
-				col = handle.GetFieldByCol(&handle, i);
-				if (NULL == col) {
-					continue;
-				}
-				kline[snapshot.kcursor1].updateTime = atoi(col);
+		kline = GetKlinesByBlock(snapshot.idx, 1);
 
-				col = handle.GetFieldByCol(&handle, ++i);
-				if (NULL == col) {
-					continue;
-				}
-				kline[snapshot.kcursor1].close = atoi(col);
-				snapshot.kcursor1++;
-			}
-		} else if (knum == 60) {
-			snapshot.kcursor5 = 0;
-			kline = GetKlinesByBlock(snapshot.idx, 1);
-			for (i = 2; i < 2 * knum + 2; i++) {
-				col = handle.GetFieldByCol(&handle, i);
-				if (NULL == col) {
-					continue;
-				}
-				kline[snapshot.kcursor5].updateTime = atoi(col);
+		col = handle.GetFieldByCol(&handle, 0);
+		kline[snapshot.kcursor1].traday = atoi(col);
 
-				col = handle.GetFieldByCol(&handle, ++i);
-				if (NULL == col) {
-					continue;
-				}
-				kline[snapshot.kcursor5].close = atoi(col);
-				snapshot.kcursor5++;
-			}
-		}
+		col = handle.GetFieldByCol(&handle, 1);
 
+		kline[snapshot.kcursor5].updateTime = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 4);
+		//开盘价
+		kline[snapshot.kcursor5].open = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 5);
+		//最高价
+		kline[snapshot.kcursor5].high = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 6);
+		//最低价
+		kline[snapshot.kcursor5].low = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 7);
+		//收盘价
+		kline[snapshot.kcursor5].close = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 8);
+		//成交数量
+		kline[snapshot.kcursor5].qty = atol(col);
+		//成交金额
+		col = handle.GetFieldByCol(&handle, 9);
+		kline[snapshot.kcursor5].amt = atol(col);
+
+		//成交笔数
+		col = handle.GetFieldByCol(&handle, 10);
+		kline[snapshot.kcursor5].numTrades = atoi(col);
+		//预测价
+
+		snapshot.kcursor5++;
 		XPutOrUpdVRSnapshot(&snapshot);
-	}
-	XCsvClose(&handle);
 
-	return (iret);
+#else
+
+XOrderBookT* pOrderBook = NULL, orderBook;
+
+		pOrderBook = XFndVOrderBookByKey(market, pSecurityId);
+
+		if(NULL == pOrderBook)
+		{
+			memset(&orderBook, 0, sizeof(XOrderBookT));
+			orderBook.snapshot.market = market;
+			memcpy (orderBook.snapshot.securityId, pSecurityId,  SECURITYID_LEN);
+			pStock = XFndVStockByKey(market, pSecurityId);
+			if(NULL != pStock)
+			{
+				orderBook.snapshot.preClosePx = pStock->preClose;
+				orderBook.snapshot.upperPx = pStock->upperPrice;
+				orderBook.snapshot.lowerPx = pStock->lowerPrice;
+			}
+			XPutOrdUpdVOrderBookByKey(&orderBook);
+
+			pOrderBook = XFndVOrderBookByKey(market, pSecurityId);
+			if(NULL == pOrderBook)
+			{
+				continue;
+			}
+			pOrderBook->snapshot.idx = pOrderBook->idx;
+		}
+
+		pSnapshot = &(pOrderBook->snapshot);
+
+		kline = GetKlinesByBlock(pSnapshot->idx, 0);
+
+		col = handle.GetFieldByCol(&handle, 0);
+		kline[pSnapshot->kcursor1].traday = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 1);
+
+		kline[pSnapshot->kcursor1].updateTime = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 4);
+		//开盘价
+		kline[pSnapshot->kcursor1].open = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 5);
+		//最高价
+		kline[pSnapshot->kcursor1].high = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 6);
+		//最低价
+		kline[pSnapshot->kcursor1].low = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 7);
+		//收盘价
+		kline[pSnapshot->kcursor1].close = atoi(col);
+
+		col = handle.GetFieldByCol(&handle, 8);
+		//成交数量
+		kline[pSnapshot->kcursor1].qty = atol(col);
+		//成交金额
+		col = handle.GetFieldByCol(&handle, 9);
+		kline[pSnapshot->kcursor1].amt = atol(col);
+
+		//成交笔数
+		col = handle.GetFieldByCol(&handle, 10);
+		kline[pSnapshot->kcursor1].numTrades = atoi(col);
+
+		pSnapshot->kcursor1++;
+
+#endif
+	}
+	return (0);
 }
 
+//tradeDate,market,securityId,preClosePx,openPx,highPx,lowPx,tradePx,numTrades,volumeTrade,amountTrade, preVolume, multVol,upperTimes,upperBidOrdQty,upperBidOrdCnt,lowerOfferOrdQty,lowerOfferOrdCnt,upperOfferOrdQty,upperOfferOrdCnt,lowerBidOrdQty,lowerBidOrdCnt,yesUpperOfferOrdQty,yesUpperOfferOrdCnt
 int read_hissnapshot(const char *trade_file) {
 	const char *col = NULL;
 	XCsvHandleT handle;
@@ -1728,6 +2143,16 @@ int read_hissnapshot(const char *trade_file) {
 		pStock->ysMultiple = multVol;
 		pStock->upperTimes = upperTimes;
 
+		col = handle.GetFieldByCol(&handle, 5);
+		if (col) {
+			pStock->preHighPx = atoi(col);
+		}
+
+		col = handle.GetFieldByCol(&handle, 6);
+		if (col) {
+			pStock->preLowPx = atoi(col);
+		}
+
 		col = handle.GetFieldByCol(&handle, 14);
 		if (col) {
 			pStock->upperBidOrdQty = atol(col);
@@ -1748,6 +2173,7 @@ int read_hissnapshot(const char *trade_file) {
 			pStock->lowerOfferOrdCnt = atoi(col);
 		}
 
+		//涨停卖挂单量
 		col = handle.GetFieldByCol(&handle, 18);
 		if (col) {
 			pStock->upperOfferOrdQty = atol(col);
@@ -1780,6 +2206,7 @@ int read_block(const char *trade_file) {
 	XChar *pblockNo = NULL;
 	XChar *pblockName = NULL;
 	XBlockT block;
+	XChar *pBlockType = NULL;
 
 	iret = XCsvOpen(&handle, trade_file);
 	if (iret) {
@@ -1797,9 +2224,19 @@ int read_block(const char *trade_file) {
 		if (NULL == pblockNo || NULL == pblockName) {
 			continue;
 		}
+		pBlockType = handle.GetFieldByCol(&handle, 2);
+
 		memset(&block, 0, sizeof(XBlockT));
 		memcpy(block.blockNo, pblockNo, strlen(pblockNo));
 		memcpy(block.blockName, pblockName, strlen(pblockName));
+		if(NULL == pBlockType)
+		{
+			block.blockType = eXIndustry;
+		}
+		else
+		{
+			block.blockType = atoi(pBlockType);
+		}
 		XPutOrUpdBlock(&block);
 	}
 	XCsvClose(&handle);
@@ -1813,6 +2250,7 @@ int read_blockinfo(const char *trade_file) {
 	XChar *pField = NULL;
 	XBlockInfoT blockinfo;
 	XBlockT *pBlock = NULL;
+	XStockT *pStock = NULL;
 
 	iret = XCsvOpen(&handle, trade_file);
 	if (iret) {
@@ -1856,6 +2294,13 @@ int read_blockinfo(const char *trade_file) {
 			slog_warn(0, "已存在对应的数据[%s-%s]", blockinfo.blockNo,
 					blockinfo.securityId);
 			continue;
+		}
+
+		//找到对应的行业
+		pStock = XFndVStockByKey(blockinfo.market, blockinfo.securityId);
+		if(NULL != pStock && eXIndustry == pBlock->blockType)
+		{
+			pStock->industryIdx = pBlock->idx;
 		}
 
 		//存放为数组
@@ -2053,7 +2498,7 @@ XInt XGetUser(const char *userConf, XCustT pCust[]) {
 
 	///读取CTP账户
 	pos = 1;
-	iret =0;
+	iret = 0;
 	///读取oes账户
 	while (!iret) {
 		memset(&cust, 0, sizeof(XCustT));
@@ -2100,3 +2545,325 @@ XVoid XSnapPrint(XInt market, XChar *securityId) {
 			pSnapshot->bid[0], pSnapshot->bidqty[0], pSnapshot->ask[0],
 			pSnapshot->askqty[0]);
 }
+
+static int comp_fn_zdf(const void *p1, const void *p2) {
+	return (((XBlockInfoT*) p1)->zdf > ((XBlockInfoT*) p2)->zdf ? 0 : 1);
+}
+
+XVoid XBlockPrint(XChar* blockNo)
+{
+	XBlockT* pBlock = NULL;
+	XBlockInfoT blockInfo[1024], *pBlockInfo = NULL;
+	XInt i = 0;
+	XStockT *pStock = NULL;
+
+	pBlock = XFndVBlockByKey(blockNo);
+	if(NULL == pBlock)
+	{
+		return;
+	}
+
+#ifdef __USED_NCURSES__
+	XInt iline;
+	XInt icol;
+	XChar buf[100];
+	XInt colLen;
+
+	setlocale(LC_ALL, "");
+	setlocale(LC_CTYPE, "");
+	raw();
+	// 初始化ncurses
+	initscr();
+	start_color();
+	init_pair(1, COLOR_WHITE, COLOR_BLUE);
+	init_pair(2, COLOR_BLUE, COLOR_WHITE);
+	init_pair(3, COLOR_RED, COLOR_WHITE);
+	//cbreak();
+	//noecho();
+	keypad(stdscr, TRUE);
+	curs_set(0);
+
+	clear();
+	while(1)
+	{
+		iline = 2;
+		box(stdscr, ACS_VLINE, ACS_HLINE);
+		attron(COLOR_PAIR(2));
+		mvprintw(iline, 2, "                   量赢策略交易平台-Monitor (%s)                   ", __XMAN_VERSION__);
+		attroff(COLOR_PAIR(2));
+
+		memset(&blockInfo, 0, sizeof(XBlockInfoT));
+
+		for(i = 0; i < pBlock->count; i++)
+		{
+			pBlockInfo = XFndVBlockInfoById(pBlock->beginIdx + i);
+			if(NULL == pBlockInfo || strcmp(pBlock->blockNo, pBlockInfo->blockNo) != 0)
+			{
+				continue;
+			}
+			memcpy(&blockInfo[i], pBlockInfo, sizeof(XBlockInfoT));
+		}
+
+		qsort(blockInfo, pBlock->count, sizeof(XBlockInfoT), comp_fn_zdf);
+		iline++;
+		mvprintw(iline, 2, "板块[%s(%s)],涨跌幅[%.2f]", pBlock->blockName, pBlock->blockNo, pBlock->zdf * 0.01);
+		for(i = 0; i< pBlock->count; i++)
+		{
+			if(blockInfo[i].idx < 1)
+			{
+				continue;
+			}
+			iline++;
+			pStock = XFndVStockByKey(blockInfo[i].market, blockInfo[i].securityId);
+
+			memset(buf, 0, sizeof(buf));
+			sprintf(buf, "%s.%s(%s) %.2f [%d]|", blockInfo[i].securityId, (blockInfo[i].market == eXMarketSha ?"SH":"SZ"),
+											(NULL == pStock ? "":pStock->securityName), blockInfo[i].zdf * 0.01, blockInfo[i].updateTime);
+
+			mvprintw(iline, 2, "%s", buf);
+			icol = strlen(buf);
+			colLen = 2 + icol;
+
+			/////////////
+			i++;
+			if(i >= pBlock->count)
+			{
+				break;
+			}
+
+			memset(buf, 0, sizeof(buf));
+			sprintf(buf, "%s.%s(%s) %.2f [%d]|", blockInfo[i].securityId, (blockInfo[i].market == eXMarketSha ?"SH":"SZ"),
+					(NULL == pStock ? "":pStock->securityName), blockInfo[i].zdf * 0.01, blockInfo[i].updateTime);
+			mvprintw(iline, colLen, "%s", buf);
+			icol = strlen(buf);
+			colLen += icol;
+			/////////////
+			i++;
+			if(i >= pBlock->count)
+			{
+				break;
+			}
+			memset(buf, 0, sizeof(buf));
+			sprintf(buf, "%s.%s(%s) %.2f [%d]|", blockInfo[i].securityId, (blockInfo[i].market == eXMarketSha ?"SH":"SZ"),
+					(NULL == pStock ? "":pStock->securityName), blockInfo[i].zdf * 0.01, blockInfo[i].updateTime);
+			mvprintw(iline, colLen, "%s", buf);
+			icol = strlen(buf);
+			colLen += icol;
+
+			///////////////////
+			i++;
+			if(i >= pBlock->count)
+			{
+				break;
+			}
+			memset(buf, 0, sizeof(buf));
+			sprintf(buf, "%s.%s(%s) %.2f [%d]|", blockInfo[i].securityId, (blockInfo[i].market == eXMarketSha ?"SH":"SZ"),
+					(NULL == pStock ? "":pStock->securityName), blockInfo[i].zdf * 0.01, blockInfo[i].updateTime);
+			mvprintw(iline, colLen, "%s", buf);
+			icol = strlen(buf);
+			colLen += icol;
+
+		}
+
+		refresh();
+		sleep(1);
+	}
+	// 刷新窗口并等待用户按下任意键
+	refresh();
+	endwin();
+#else
+	memset(&blockInfo, 0, sizeof(XBlockInfoT));
+
+	for(i = 0; i < pBlock->count; i++)
+	{
+		pBlockInfo = XFndVBlockInfoById(pBlock->beginIdx + i);
+		if(NULL == pBlockInfo || strcmp(pBlock->blockNo, pBlockInfo->blockNo) != 0)
+		{
+			continue;
+		}
+		memcpy(&blockInfo[i], pBlockInfo, sizeof(XBlockInfoT));
+	}
+
+	qsort(blockInfo, pBlock->count, sizeof(XBlockInfoT), comp_fn_zdf);
+
+	printf("板块[%s(%s)],涨跌幅[%.2f]\n", pBlock->blockName, pBlock->blockNo, pBlock->zdf * 0.01);
+	for(i = 0; i < pBlock->count; i++)
+	{
+		if(blockInfo[i].idx < 1)
+		{
+			continue;
+		}
+
+		pStock = XFndVStockByKey(blockInfo[i].market, blockInfo[i].securityId);
+
+		printf("%s.%s(%s) 涨跌幅:%.2f\n", blockInfo[i].securityId, (blockInfo[i].market == eXMarketSha ?"SH":"SZ"),
+				(NULL == pStock ? "":pStock->securityName), blockInfo[i].zdf * 0.01);
+	}
+#endif
+
+}
+
+XVoid XBlockTopPrint()
+{
+	XBlockT* pBlock = NULL;
+	XBlockInfoT blockInfo[1024], *pBlockInfo = NULL;
+	XInt i = 0;
+	XStockT *pStock = NULL;
+	XMonitorMdT *pMonitorMd = NULL;
+
+	pMonitorMd = XFndVMdMonitor(eXExchSec);
+
+#ifdef __USED_NCURSES__
+	XInt iline;
+	XInt icol, j;
+	XChar buf[100];
+	XInt colLen;
+
+	setlocale(LC_ALL, "");
+	setlocale(LC_CTYPE, "");
+	raw();
+	// 初始化ncurses
+	initscr();
+	start_color();
+	init_pair(1, COLOR_WHITE, COLOR_BLUE);
+	init_pair(2, COLOR_BLUE, COLOR_WHITE);
+	init_pair(3, COLOR_RED, COLOR_WHITE);
+
+	keypad(stdscr, TRUE);
+	curs_set(0);
+
+	while(1)
+	{
+		clear();
+		iline = 2;
+		box(stdscr, ACS_VLINE, ACS_HLINE);
+		attron(COLOR_PAIR(2));
+		mvprintw(iline, 2, "                   量赢策略交易平台-板块监控 (%s)                   ", __XMAN_VERSION__);
+		attroff(COLOR_PAIR(2));
+
+		for (j = 0; j < 8; j++)
+		{
+			pBlock = XFndVBlockById(pMonitorMd->blockTopIdx[j]);
+			if(NULL == pBlock)
+			{
+				return;
+			}
+			memset(&blockInfo, 0, sizeof(XBlockInfoT));
+
+			for(i = 0; i < pBlock->count; i++)
+			{
+				pBlockInfo = XFndVBlockInfoById(pBlock->beginIdx + i);
+				if(NULL == pBlockInfo || strcmp(pBlock->blockNo, pBlockInfo->blockNo) != 0)
+				{
+					continue;
+				}
+				memcpy(&blockInfo[i], pBlockInfo, sizeof(XBlockInfoT));
+			}
+
+			qsort(blockInfo, pBlock->count, sizeof(XBlockInfoT), comp_fn_zdf);
+			iline++;
+			mvprintw(iline, 2, "【%d】 板块[%s(%s)],涨跌幅[%.2f],时间[%d]", j + 1, pBlock->blockName, pBlock->blockNo, pBlock->zdf * 0.01, pMonitorMd->updateTime);
+			for(i = 0; i< 8; i++)
+			{
+				if(blockInfo[i].idx < 1)
+				{
+					continue;
+				}
+				iline++;
+				pStock = XFndVStockByKey(blockInfo[i].market, blockInfo[i].securityId);
+
+				memset(buf, 0, sizeof(buf));
+				sprintf(buf, "%s.%s(%s) %3.2f ", blockInfo[i].securityId, (blockInfo[i].market == eXMarketSha ?"SH":"SZ"),
+												(NULL == pStock ? "":pStock->securityName), blockInfo[i].zdf * 0.01);
+
+				mvprintw(iline, 2, "%s", buf);
+				icol = 30;
+				colLen = 2 + icol;
+
+				/////////////
+				i++;
+				if(i >= pBlock->count)
+				{
+					break;
+				}
+				pStock = XFndVStockByKey(blockInfo[i].market, blockInfo[i].securityId);
+				memset(buf, 0, sizeof(buf));
+				sprintf(buf, "%s.%s(%s) %3.2f ", blockInfo[i].securityId, (blockInfo[i].market == eXMarketSha ?"SH":"SZ"),
+						(NULL == pStock ? "":pStock->securityName), blockInfo[i].zdf * 0.01);
+				mvprintw(iline, colLen, "%s", buf);
+				icol = 30;
+				colLen += icol;
+				/////////////
+				i++;
+				if(i >= pBlock->count)
+				{
+					break;
+				}
+				pStock = XFndVStockByKey(blockInfo[i].market, blockInfo[i].securityId);
+				memset(buf, 0, sizeof(buf));
+				sprintf(buf, "%s.%s(%s) %3.2f ", blockInfo[i].securityId, (blockInfo[i].market == eXMarketSha ?"SH":"SZ"),
+						(NULL == pStock ? "":pStock->securityName), blockInfo[i].zdf * 0.01);
+				mvprintw(iline, colLen, "%s", buf);
+				icol = 30;
+				colLen += icol;
+
+				///////////////////
+				i++;
+				if(i >= pBlock->count)
+				{
+					break;
+				}
+				pStock = XFndVStockByKey(blockInfo[i].market, blockInfo[i].securityId);
+				memset(buf, 0, sizeof(buf));
+				sprintf(buf, "%s.%s(%s) %3.2f ", blockInfo[i].securityId, (blockInfo[i].market == eXMarketSha ?"SH":"SZ"),
+						(NULL == pStock ? "":pStock->securityName), blockInfo[i].zdf * 0.01);
+				mvprintw(iline, colLen, "%s", buf);
+				icol = 30;
+				colLen += icol;
+			}
+//			iline++;
+		}
+		refresh();
+		sleep(1);
+	}
+	// 刷新窗口并等待用户按下任意键
+	refresh();
+	endwin();
+#else
+	pBlock = XFndVBlockById(pMonitorMd->blockTopIdx[0]);
+	if(NULL == pBlock)
+	{
+		return;
+	}
+
+	memset(&blockInfo, 0, sizeof(XBlockInfoT));
+
+	for(i = 0; i < pBlock->count; i++)
+	{
+		pBlockInfo = XFndVBlockInfoById(pBlock->beginIdx + i);
+		if(NULL == pBlockInfo || strcmp(pBlock->blockNo, pBlockInfo->blockNo) != 0)
+		{
+			continue;
+		}
+		memcpy(&blockInfo[i], pBlockInfo, sizeof(XBlockInfoT));
+	}
+
+	qsort(blockInfo, pBlock->count, sizeof(XBlockInfoT), comp_fn_zdf);
+
+	printf("板块[%s(%s)],涨跌幅[%.2f]\n", pBlock->blockName, pBlock->blockNo, pBlock->zdf * 0.01);
+	for(i = 0; i < pBlock->count; i++)
+	{
+		if(blockInfo[i].idx < 1)
+		{
+			continue;
+		}
+
+		pStock = XFndVStockByKey(blockInfo[i].market, blockInfo[i].securityId);
+
+		printf("%s.%s(%s) 涨跌幅:%.2f\n", blockInfo[i].securityId, (blockInfo[i].market == eXMarketSha ?"SH":"SZ"),
+				(NULL == pStock ? "":pStock->securityName), blockInfo[i].zdf * 0.01);
+	}
+#endif
+}
+
+

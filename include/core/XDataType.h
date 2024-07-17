@@ -14,6 +14,16 @@ extern "C"
 #endif
 
 /**
+ * 信号
+ */
+typedef enum
+{
+	eXSgnlPosZs = 1,    /**< 正涨速  */
+	eXSgnlNagZs = 2, 	/**< 负涨速 */
+	eXSgnlUp = 3       /**< 临近涨停 */
+}eXSgnlType;
+
+/**
  * 用户类型
  */
 typedef enum {
@@ -47,7 +57,8 @@ typedef enum  {
 typedef enum  {
 	exMarketShSz = 0,                  /**< 沪深交易所 */
 	eXMarketSha = 1,                   /**< 上海A */
-	eXMarketSza = 2                    /**< 深圳A */
+	eXMarketSza = 2,                   /**< 深圳A */
+	eXMarketHK = 3                     /**< 港股 */
 } eXMarket;
 
 /**
@@ -260,16 +271,6 @@ typedef enum  {
 } eXDelay;
 
 /**
- * 禁止买卖标志
- */
-typedef enum  {
-	eXBlockNone = 0,     /**< 允许买卖 */
-	eXBlockSell = 1,     /**< 禁止卖 */
-	eXBlockBuy = 2,      /**< 禁止买 */
-	eXBlockBoth = 3,     /**< 禁止买卖 */
-} eXBlockType;
-
-/**
  *	缓存数据类型
  */
 typedef enum  {
@@ -300,11 +301,14 @@ typedef enum  {
 
 	eTTdMon = 30,      		/**< 交易监控 */
 	eTMdMon = 31,      		/**< 行情监控 */
-	eTCounter = 32,			/**< 计数器 */
+	eTCounter = 32,			/**< 计数器 delete */
 	eTPrsApp = 33,          /**< 进程计数 */
+	eTETF = 34,             /**< ETF 计数 */
+	eTETFComp = 35,         /**< ETFComp技术 */
 	
 	eBHold = 40,            /**< 回测持仓计数 */
 
+	eSignal = 50,           /**< 信号 */
 } eXDataType;
 
 /**
@@ -315,6 +319,13 @@ typedef enum  {
 	eXL2ExecTrade = 9       /**< 成交 'F' */
 } eXL2ExecType;
 
+typedef enum {
+	eXExecBOrd = 1,       /**< 买委托 */
+	eXExecSOrd = 2,       /**< 卖委托 */
+	eXExecBCtrl = 3,      /**< 买撤单 */
+	eXExecSCtrl = 4,      /**< 卖撤单 */
+	eXExecTrd = 5         /**< 成交 */
+}eXOrdExecType;
 
 typedef enum 
 {
@@ -322,6 +333,29 @@ typedef enum
 	eXL2DriveAsk = 2,     /**< 主动卖单 */
 	eXL2DriveUnknown = 0  /**< 未知 */
 }eXDriveType;
+
+typedef enum
+{
+	eXIndustry = 2,    /**< 行业 */
+	eXNotion = 3,      /**< 概念 */
+	eXArea   = 1      /**< 区域 */
+}eXBlockType;
+
+/**
+ * ETF成份证券现金替代标志
+ */
+typedef enum _eXEtfSubFlag {
+    eXETF_SUBFLAG_FORBID_SUB              = 0,        /**< 禁止现金替代 (必须有证券) */
+    eXETF_SUBFLAG_ALLOW_SUB               = 1,        /**< 可以进行现金替代(先用证券, 如证券不足可用现金替代) */
+    eXETF_SUBFLAG_MUST_SUB                = 2,        /**< 必须用现金替代 */
+	eXETF_SUBFLAG_SZ_REFUND_SUB           = 3,        /**< 该证券为深市证券, 退补现金替代 */
+	eXETF_SUBFLAG_SZ_MUST_SUB             = 4,        /**< 该证券为深市证券, 必须现金替代 */
+	eXETF_SUBFLAG_OTHER_REFUND_SUB        = 5,        /**< 非沪深市场成份证券退补现金替代 */
+	eXETF_SUBFLAG_OTHER_MUST_SUB          = 6,        /**< 非沪深市场成份证券必须现金替代 */
+	eXETF_SUBFLAG_HK_REFUND_SUB           = 7,        /**< 港市退补现金替代 (仅适用于跨沪深港ETF产品) */
+	eXETF_SUBFLAG_HK_MUST_SUB             = 8         /**< 港市必须现金替代 (仅适用于跨沪深港ETF产品) */
+} eXEtfSubFlag;
+
 
 #define XSHMKEYCONECT(key)    XSHM_##key##_IDX
 
@@ -340,6 +374,11 @@ typedef enum
 	XSHMKEYCONECT(stockHash),
 	XSHMKEYCONECT(issue) ,
 	XSHMKEYCONECT(issueHash) ,
+
+	XSHMKEYCONECT(etf) ,
+	XSHMKEYCONECT(etfHash) ,
+	XSHMKEYCONECT(etfComp) ,
+
 	XSHMKEYCONECT(orderBook) ,
 	XSHMKEYCONECT(bookHash) ,
 	XSHMKEYCONECT(priceSh) ,
@@ -393,20 +432,24 @@ typedef enum
 	XSHMKEYCONECT(rtnCache) ,
 	XSHMKEYCONECT(rspCache),
 	XSHMKEYCONECT(strategyFrontHash),
-	XSHMKEYCONECT(updateHash),
+	XSHMKEYCONECT(sessionManageHash),
 	XSHMKEYCONECT(klines),
 	XSHMKEYCONECT(block),
 	XSHMKEYCONECT(blockHash),
 	XSHMKEYCONECT(blockinfo),
 	XSHMKEYCONECT(blockInfoHash),
-	
+
+#ifdef __WITH_BACKTEST__
 	XSHMKEYCONECT(backtestCash),
 	XSHMKEYCONECT(backtestCashHash),
 	XSHMKEYCONECT(backtestHold),
 	XSHMKEYCONECT(backtestHoldHash),
 	XSHMKEYCONECT(backtestOrder),
 	XSHMKEYCONECT(backtestOrderHash),
-	XSHM_KEY_MAX = 78
+	XSHM_KEY_MAX = 81
+#else
+	XSHM_KEY_MAX = 75
+#endif
 }eXSHMKEY;
 
 #ifdef __cplusplus

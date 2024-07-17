@@ -6,6 +6,9 @@
 
 static XMonitorMdT *l_pMonitor = NULL;
 
+#define __DEBUG_CODE__ "603739"
+//#define __DEBUG_INFO__
+
 // 委托订单
 static XVoid AddFixedBidOrder(XTickOrderT *tickOrder, XRSnapshotT *pSnapshot) {
 	XTickOrderT *pTickOrder = NULL;
@@ -20,22 +23,31 @@ static XVoid AddFixedBidOrder(XTickOrderT *tickOrder, XRSnapshotT *pSnapshot) {
 		pSnapshot->bigBuyOrdCnt++;
 	}
 
-	//计算1秒内买单的频次及涨停价超大单买的次数
-		if (tickOrder->updateTime / 1000 == pSnapshot->updateTime / 1000) {
-			pSnapshot->lsecBuyTimes = pSnapshot->secBuyTimes;
-			pSnapshot->secUpBigBuyCnt = 0;
-			pSnapshot->secUpBuyTimes = 0;
-			pSnapshot->secBuyTimes = 0;
-		} else {
+	//行情更新
+	pSnapshot->execType = eXExecBOrd;
+	pSnapshot->execMoney = ordMoney;
+	pSnapshot->execPrice = tickOrder->ordPx;
 
-			pSnapshot->secBuyTimes++;
-			if (tickOrder->ordPx == pSnapshot->upperPx) {
-				pSnapshot->secUpBuyTimes++;
-				if (tickOrder->ordQty > SUPERORDER_VOLUME) {
-					pSnapshot->secUpBigBuyCnt++;
-				}
-			}
+	//计算1秒内买单的频次及涨停价超大单买的次数
+	if (tickOrder->updateTime / 1000 == pSnapshot->updateTime / 1000) {
+
+		pSnapshot->lsecBuyTimes = pSnapshot->secBuyTimes;
+		pSnapshot->secUpBigBuyCnt = 0;
+		pSnapshot->secUpBuyTimes = 0;
+		pSnapshot->secBuyTimes = 0;
+		pSnapshot->netBigTrdMoney = 0;
+	}
+
+	pSnapshot->secBuyTimes++;
+	if (tickOrder->ordPx == pSnapshot->upperPx) {
+		pSnapshot->secUpBuyTimes++;
+		if (tickOrder->ordQty > SUPERORDER_VOLUME && (tickOrder->ordPx - pSnapshot->tradePx) > 0.015 * pSnapshot->tradePx) {
+			pSnapshot->secUpBigBuyCnt++;
 		}
+	}
+	if (tickOrder->ordQty >= MIDORDER_VOLUME && tickOrder->ordPx > pSnapshot->tradePx) {
+		pSnapshot->netBigTrdMoney += ordMoney;
+	}
 
 	pSnapshot->totalBuyOrdQty += tickOrder->ordQty;
 	pSnapshot->totalBuyOrdCnt++;
@@ -114,6 +126,21 @@ static XVoid AddFixedOfferOrder(XTickOrderT *tickOrder, XRSnapshotT *pSnapshot) 
 	pSnapshot->totalSellOrdCnt++;
 	pSnapshot->totalSellOrdAmt += ordMoney;
 
+	//行情更新
+	pSnapshot->execType = eXExecSOrd;
+	pSnapshot->execMoney = ordMoney;
+	pSnapshot->execPrice = tickOrder->ordPx;
+
+	//计算大单净买入额
+	if (tickOrder->updateTime / 1000 == pSnapshot->updateTime / 1000) {
+
+		pSnapshot->netBigTrdMoney = 0;
+	}
+
+	if (tickOrder->ordQty >= MIDORDER_VOLUME && tickOrder->ordPx < pSnapshot->tradePx) {
+		pSnapshot->netBigTrdMoney -= ordMoney;
+	}
+
 	// 是不是涨跌停价委托
 	// 涨停价买
 	if (tickOrder->ordPx == pSnapshot->upperPx) {
@@ -137,6 +164,15 @@ static XVoid AddFixedOfferOrder(XTickOrderT *tickOrder, XRSnapshotT *pSnapshot) 
 			//统计
 			pSnapshot->upperOfferOrdQty += tickOrder->ordQty;
 			pSnapshot->upperOfferOrdCnt++;
+
+#ifdef __DEBUG_INFO__
+		if(strncmp(tickOrder->securityId, __DEBUG_CODE__, 6) == 0)
+		{
+			slog_debug(0, "[%d-%s-%lld] 涨停价卖出添加 [%d], [%lld]", tickOrder->market, tickOrder->securityId,
+					tickOrder->seqno,
+					tickOrder->_leaveQty, pSnapshot->upperOfferOrdQty);
+		}
+#endif
 		}
 	} else if (tickOrder->ordPx == pSnapshot->lowerPx) {
 		// 能否找到原始订单
@@ -183,6 +219,11 @@ static XVoid RevokeBidOrder(XTickOrderT *tickOrder, XRSnapshotT *pSnapshot) {
 		pSnapshot->bigBuyOrdCnt--;
 	}
 
+	//行情更新
+	pSnapshot->execType = eXExecBCtrl;
+	pSnapshot->execMoney = ordMoney;
+	pSnapshot->execPrice = pTickOrder->ordPx;
+
 	pSnapshot->bidqty[0] -= tickOrder->ordQty;
 	if (pSnapshot->bidqty[0] <= 0) {
 		pSnapshot->bid[0] = 0;
@@ -190,7 +231,7 @@ static XVoid RevokeBidOrder(XTickOrderT *tickOrder, XRSnapshotT *pSnapshot) {
 	}
 
 	//更新委托
-	if (pTickOrder->idx == UPPER_BID_ID) {
+	if (pTickOrder->_priceIdx == UPPER_BID_ID) {
 		pSnapshot->upperBidOrdQty -= tickOrder->ordQty;
 		pSnapshot->upperBidOrdCnt--;
 		if (pSnapshot->_lastUpperTime != 0) {
@@ -199,7 +240,7 @@ static XVoid RevokeBidOrder(XTickOrderT *tickOrder, XRSnapshotT *pSnapshot) {
 				pSnapshot->_catchUpBidCBuyCnt++;
 			}
 		}
-	} else if (pTickOrder->idx == LOWER_BID_ID) {
+	} else if (pTickOrder->_priceIdx == LOWER_BID_ID) {
 		pSnapshot->lowerBidOrdQty -= tickOrder->ordQty;
 		pSnapshot->lowerBidOrdCnt--;
 	}
@@ -227,6 +268,11 @@ static XVoid RevokeOfferOrder(XTickOrderT *tickOrder, XRSnapshotT *pSnapshot) {
 		pSnapshot->bigSellOrdQty -= tickOrder->ordQty;
 	}
 
+	//行情更新
+	pSnapshot->execType = eXExecSCtrl;
+	pSnapshot->execMoney = ordMoney;
+	pSnapshot->execPrice = pTickOrder->ordPx;
+
 	pSnapshot->askqty[0] -= tickOrder->ordQty;
 	if (pSnapshot->askqty[0] <= 0) {
 		pSnapshot->ask[0] = 0;
@@ -234,12 +280,24 @@ static XVoid RevokeOfferOrder(XTickOrderT *tickOrder, XRSnapshotT *pSnapshot) {
 	}
 
 	//更新委托
-	if (pTickOrder->idx == UPPER_OFFER_ID) {
+	if (pTickOrder->_priceIdx == UPPER_OFFER_ID) {
 		pSnapshot->upperOfferOrdQty -= tickOrder->ordQty;
 		pSnapshot->upperOfferOrdCnt--;
-	} else if (pTickOrder->idx == LOWER_OFFER_ID) {
+
+#ifdef __DEBUG_INFO__
+	if(strncmp(tickOrder->securityId, __DEBUG_CODE__, 6) == 0)
+	{
+		slog_debug(0, "[%d-%s-%lld]涨停价卖出,撤单 [%d], [%lld]", tickOrder->market, tickOrder->securityId,
+				tickOrder->seqno,
+				tickOrder->ordQty, pSnapshot->upperOfferOrdQty);
+	}
+#endif
+//		slog_debug(0, "[%d-%s]涨停卖撤单", pTickOrder->market, pTickOrder->securityId);
+
+	} else if (pTickOrder->_priceIdx == LOWER_OFFER_ID) {
 		pSnapshot->lowerOfferOrdQty -= tickOrder->ordQty;
 		pSnapshot->lowerOfferOrdCnt--;
+//		slog_debug(0, "[%d-%s]跌停卖撤单", pTickOrder->market, pTickOrder->securityId);
 	}
 
 	//根据priceIdx进行判断撤单是涨停还是跌停买单
@@ -279,6 +337,17 @@ static XVoid OnOrder(XTickOrderT *tickOrder) {
 			snapshot.secStatus = pStock->secStatus;
 		}
 	}
+	snapshot.updateTime = tickOrder->updateTime;
+
+#ifdef __DEBUG_INFO__
+	if(strncmp(tickOrder->securityId, __DEBUG_CODE__, 6) == 0 && tickOrder->ordPx == snapshot.upperPx && tickOrder->bsType == eXSell)
+	{
+		slog_debug(0, "============================== OnSzseOrder ================================");
+		slog_debug(0, "OnOrder [%d-%s],买卖[%d],ordPx[%d],ordQty[%d],ordType[%d],委托时间[%d],序号[%lld]", tickOrder->market, tickOrder->securityId,
+		tickOrder->bsType, tickOrder->ordPx, tickOrder->ordQty, tickOrder->ordType, tickOrder->updateTime, tickOrder->bizIndex);
+	}
+#endif
+
 	if (tickOrder->bsType == eXBuy) {
 		if (tickOrder->isCancel) {
 			RevokeBidOrder(tickOrder, &snapshot);
@@ -306,6 +375,12 @@ static XVoid OnComTrade(XTickTradeT *tickTrade, XRSnapshotT *pSnapshot) {
 	pSnapshot->_recvTime = tickTrade->_recvTime;
 	pSnapshot->updateTime = tickTrade->updateTime;
 	pSnapshot->version++;
+
+
+	//行情
+	pSnapshot->execType = eXExecTrd;
+	pSnapshot->execMoney = tickTrade->tradeMoney;
+	pSnapshot->execPrice = tickTrade->tradePx;
 
 	if (tickTrade->updateTime >= 93000000) {
 		/** 主动成交价格,后来的是主动方 */
@@ -390,6 +465,22 @@ static XVoid OnBidTrade(XTickTradeT *tickTrade, XRSnapshotT *pSnapshot) {
 		bStatics = true;
 	}
 
+	//计算1秒内买单的频次及涨停价超大单买的次数
+		if (tickTrade->updateTime / 1000 == pSnapshot->updateTime / 1000) {
+
+			pSnapshot->lsecBuyTimes = pSnapshot->secBuyTimes;
+			pSnapshot->secUpBigBuyCnt = 0;
+			pSnapshot->secUpBuyTimes = 0;
+			pSnapshot->secBuyTimes = 0;
+		}
+
+	if (tickTrade->tradePx == pSnapshot->upperPx) {
+			pSnapshot->secUpBuyTimes++;
+			if (tickTrade->tradeQty > SUPERORDER_VOLUME) {
+				pSnapshot->secUpBigBuyCnt++;
+			}
+		}
+
 	ordMoney = (XMoney) pTickOrder->ordQty * pTickOrder->ordPx;
 	if (!bStatics
 			&& (pTickOrder->ordQty >= BIGORDER_VOLUME
@@ -397,6 +488,15 @@ static XVoid OnBidTrade(XTickTradeT *tickTrade, XRSnapshotT *pSnapshot) {
 		pSnapshot->bigBuyTrdAmt += tickTrade->tradeMoney;
 		pSnapshot->bigBuyOrdAmt -= tickTrade->tradeMoney;
 		pSnapshot->bigBuyOrdQty -= tickTrade->tradeQty;
+	}
+
+	if (pTickOrder->_priceIdx == UPPER_BID_ID)
+	{
+		pSnapshot->upperBidOrdQty -= tickTrade->tradeQty;
+	}
+	else if (pTickOrder->_priceIdx == LOWER_BID_ID)
+	{
+		pSnapshot->lowerBidOrdQty -= tickTrade->tradeQty;
 	}
 
 	pSnapshot->bidqty[0] -= tickTrade->tradeQty;
@@ -428,6 +528,24 @@ static XVoid OnOfferTrade(XTickTradeT *tickTrade, XRSnapshotT *pSnapshot) {
 			tickTrade->channel, tickTrade->askSeq);
 	if (NULL == pTickOrder) {
 		return;
+	}
+
+	//扣除涨停卖或跌停卖的数量
+	if (pTickOrder->_priceIdx == UPPER_OFFER_ID)
+	{
+		pSnapshot->upperOfferOrdQty -= tickTrade->tradeQty;
+#ifdef __DEBUG_INFO__
+		if(strncmp(tickTrade->securityId, __DEBUG_CODE__, 6) == 0)
+		{
+			slog_debug(0, "[%d-%s-%lld]涨停价卖出 ,成交 [%d], [%lld]", tickTrade->market, tickTrade->securityId,
+					tickTrade->askSeq,
+					tickTrade->tradeQty, pSnapshot->upperOfferOrdQty);
+		}
+#endif
+	}
+	else if (pTickOrder->_priceIdx == LOWER_OFFER_ID)
+	{
+		pSnapshot->lowerOfferOrdQty -= tickTrade->tradeQty;
 	}
 
 	//统计大单成交
@@ -488,6 +606,17 @@ static XVoid OnTrade(XTickTradeT *tickTrade) {
 			snapshot.secStatus = pStock->secStatus;
 		}
 	}
+
+#ifdef __DEBUG_INFO__
+
+	if(strncmp(tickTrade->securityId, __DEBUG_CODE__, 6) == 0 && tickTrade->tradePx == snapshot.upperPx)
+	{
+		slog_debug(0, "================================  OnSzseTrade  =======================");
+		slog_debug(0, "OnTrade [%d-%s],成交价格[%d],成交数量[%d],是否撤单[%d],更新时间[%d],序号[%lld],买序号[%lld],卖序号[%lld]",
+				tickTrade->market, tickTrade->securityId, tickTrade->tradePx, tickTrade->tradeQty,
+				tickTrade->isCancel, tickTrade->updateTime, tickTrade->bizIndex, tickTrade->bidSeq, tickTrade->askSeq);
+	}
+#endif
 
 	OnComTrade(tickTrade, &snapshot);
 	//大单成交无意义，只能统计涨跌停大单成交

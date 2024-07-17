@@ -22,7 +22,7 @@ extern "C"
 /**
  * 2023.12.11 修改64位对齐
  */
-#define __XMAN_VERSION__        "3.0.001"
+#define __XMAN_VERSION__        "3.1.001"
 
 /**< 无业务含义的函数返回值使用 */
 typedef int XReturn;
@@ -126,6 +126,9 @@ typedef char XAccountId[ACCOUNTID_LEN];
 /**< 证券代码 */
 typedef char XSecurityId[SECURITYID_LEN];
 
+/**< 基金代码 */
+typedef char XFundId[SECURITYID_LEN];
+
 /**< 证券名称 */
 typedef char XSecurityName[SECURITYNAME_LEN];
 
@@ -175,7 +178,7 @@ typedef char XLogMsg[512];
 #define XMAN_DATA_SNAPSHOT       "../data/export/snapshot.csv"
 #define XMAN_IMP_KSNAPSHOT_1    "../data/kline/k1.csv"
 #define XMAN_IMP_KSNAPSHOT_5    "../data/kline/k5.csv"
-#define XMAN_IMP_KLINES         "../data/kline/klines.csv"
+#define XMAN_IMP_TICKS         "../data/kline/ticks.csv"
 #define XMAN_IMP_HSNAPSHOT      "../data/kline/hsnapshot.csv"
 #define XMAN_IMP_BLOCK          "../data/kline/block.csv"
 #define XMAN_IMP_BLOCKINFO      "../data/kline/blockinfo.csv"

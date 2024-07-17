@@ -197,9 +197,14 @@ static inline int64_t host_utc_sec_offset() {
 static inline XLLong XGetClockTime() {
 	XLLong ns;
 	struct timespec t = { 0, 0 };
+	XInt iret = -1;
 
-	clock_gettime(CLOCK_REALTIME, &t);
-
+	//###精度最高，但是它系统调用的开销大
+	iret = clock_gettime(CLOCK_REALTIME, &t);
+	if(iret == -1)
+	{
+		 perror("clock_gettime"); // 打印错误信息
+	}
 	ns =  ((XLLong)t.tv_sec  * 1000000000LL + t.tv_nsec);
 
 	return (ns);
@@ -213,7 +218,7 @@ static inline XLLong XGetClockTime() {
  */
 static inline  XVoid XGetSClockTime(XChar* tTime) {
 	struct timespec t = { 0, 0 };
-
+	//###精度最高，但是它系统调用的开销大
 	clock_gettime(CLOCK_REALTIME, &t);
 
 	sprintf(tTime, "%lld", (XLLong)t.tv_sec * 1000000000LL + t.tv_nsec);

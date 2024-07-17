@@ -31,6 +31,8 @@ extern "C"
 /**< 冻结持仓错误 */
 #define XFROZEN_HOLD_ERROR     5005
 
+#define XSECURITY_NO_TRADE     5006
+
 /**< 资金不够 */
 #define XEMONEY_IS_NOT_ENOUGH 1216
 
@@ -41,6 +43,7 @@ extern "C"
 
 #define XORDER_IS_REJECT     1024
 
+#define XFLOW_IS_ENOUGH     1026
 /**< */
 #define XORDER_CTRL_DUPLICATE 1227
 #ifdef __cplusplus

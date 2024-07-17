@@ -105,8 +105,12 @@ typedef struct  {
 	XNum uppCnt;                                            /**< 涨的家数 */
 	XNum lowCnt;											/**< 跌的家数 */
 	XNum eqlCnt;                                            /**< 平的家数 */
+	XNum upperCnt;											/**< 涨停的家数 */
+	XNum lowerCnt;											/**< 跌停的家数 */
+	XNum uperOpenCnt;										/**< 开盘涨停的家数 */
+	XNum lowerOpenCnt;										/**< 开盘跌停的家数 */
 	XChar _field3[4];
-	XLong _field4[2];                                       /**< 填充64位对齐 */
+	XIdx blockTopIdx[8];
 } XMonitorMdT, *pXMonitorMdT;
 
 #define XMONITORMD_SIZE                                     (sizeof(XMonitorMdT))
@@ -137,12 +141,13 @@ typedef struct  {
 #define XMONITORTD_SIZE                                    (sizeof(XMonitorTdT))
 
 #define MAX_CUSTOMER_CNT                20
-#define MAX_EXCHANGE_CNT                10
+#define MAX_EXCHANGE_CNT                2
 
 /**
  * @brief 交易+行情监控
  */
 typedef struct  {
+	XIdx idx;                                        /**< 监控数据 */
 	XIdx iTOrder;                                    /**<  委托总数  */
 	XIdx iTTrade;                                    /**<  成交总数  */
 	XIdx iTCust;                                     /**<  客户数  */
@@ -159,7 +164,7 @@ typedef struct  {
 	XIdx iTMdUser;                                   /**<  行情用户数 */
 	XIdx iTTdUser;                                   /**<  交易用户数 */
 	XIdx iTBlk;                                      /**<  策略股票黑白名单 TODO 回测时成交编号 */
-	XIdx iCounter;										 /**< 计数器 TODO */
+	XIdx iCounter;										 /**< 计数器 TODO delete */
 	XIdx iTPrsApp;										/**< 进程数 */
 	XIdx iTSession;										/**< 会话总数 TODO */
 	XIdx iTBlock;										/**< 板块数据 */
@@ -168,7 +173,8 @@ typedef struct  {
 	XMonitorMdT monitorMd[MAX_EXCHANGE_CNT];        	 /**<  行情监控 */
 
     XIdx iBHold;								      	/**< 回测持仓计数 */
-    XLong _field[3];                                  /**< 填充64位对齐 */
+    XIdx iEtf;											/**< ETF */
+    XIdx iEtfComp;										/**< ETFComp */
 } XMonitorT, *pXMonitorT;
 /***************************************************************************************/
 
@@ -227,7 +233,9 @@ typedef struct  {
 	XNum upperOfferOrdCnt;								/**< 累计涨停价卖委托次数，撤单扣减*/
 	XSumQty lowerBidOrdQty;								/**< 累计跌停价买委托数量,撤单扣减*/
 	XNum lowerBidOrdCnt;								/**< 累计跌停价买委托次数，撤单扣减*/
-	XLong _field1[2];											/**< 64位对齐 */
+	XPrice preHighPx;                                   /**< 昨日最高价 */
+	XPrice preLowPx;									/**< 昨日最低价 */
+	XIdx industryIdx;									/**< 行业 */
 } XStockT, *pXStockT;
 
 #define XSTOCK_SIZE                                       (sizeof(XStockT))
@@ -333,7 +341,8 @@ typedef struct
 	XPrice bid[SNAPSHOT_LEVEL];                  				/**<  买价 */
 	XSumQty bidqty[SNAPSHOT_LEVEL];								/**<  买量 */
 	XChar side;													/**< 外盘:B,内盘:S */
-	XChar _field[7];
+	XChar _field[3];
+	XPrice IOPV;
 	XLong _field1[3];											/**< 64位对齐 */
 }XSnapshotBaseT, *pXSnapshotBaseT;
 
@@ -355,17 +364,19 @@ typedef struct
 	XMoney  amt;												/**< 总成交额 */
 	XSumQty    bigBuyOrdQty;                                    /**< 大单买数量 */
 	XSumQty    bigSellOrdQty;									/**< 大单卖数量 */
-	
 	XSumQty    upperBuyOrdQty;									/**< 涨停价买入委托数量 */
 	XSumQty    upperSellOrdQty;									/**< 涨停价卖出委托数量 */
-
 	XNum numTrades;                                            /**< K线内成交笔数 */
 	XBool bSave;											   /**< 保存后更改为true */
-	XChar _field1[3];
+	XChar bSignal;												/**< 该K线信号触发标记 */
+	XChar _field1[2];
 	XSumQty scanBidOrdQty;										/**< 买扫单 */
 	XSumQty scanOfferOrdQty;									/**< 卖扫单 */
-
-	XLong _field[4];                                            /**< 填充64位对齐 */
+	XSeqNum version; 											/**< 行情版本 */
+	XMoney driverBuyAmt;
+	XMoney driverSellAmt;
+	XNum supperBuyOrdCnt;
+	XNum supperSellOrdCnt;
 }XKLineT, *pXKLineT;
 
 typedef struct _XCalcData
@@ -392,30 +403,15 @@ typedef struct _XCalcData
 }XCalcDataT;
 
 
-#define SUPERORDER_VOLUME                                   500000 //(5000手)
+#define SUPERORDER_VOLUME                                   300000 //(5000手)
 
 #define BIGORDER_MONEY                                      30000000000  //(300万)
 #define BIGORDER_VOLUME                                     250000   //(2500手)
 
 #define MIDORDER_VOLUME                                     100000  //(1000手)
 
-#define SNAPSHOT_K1_CNT                                     (64)    /** 1分钟K线存储数量 */
-#define SNAPSHOT_K5_CNT                                     (64)   /** 5分钟K线存储数量 */
-
-/**
- * @brief 快照更新通知,使用通知机制异步触发策略执行
- * 
- */
-typedef struct 
-{
-	XIdx idx;
-	XChar market;
-	XChar _field[7];
-	XSecurityId securityId;
-	XLong _field2[4];                                /**< 填充64位对齐 */
-}XSnapshotNotifyT;
-
-#define XSNAPSHOT_NOTIFY_SIZE               (sizeof(XSnapshotNotifyT))
+#define SNAPSHOT_K1_CNT                                     (256)    /** 1分钟K线存储数量 */
+#define SNAPSHOT_K5_CNT                                     (64)   	/** 5分钟K线存储数量 */
 
 /**
  * @brief 快照计算数据
@@ -464,7 +460,8 @@ typedef struct  {
 	XSumQty bidqty[SNAPSHOT_LEVEL];								/**<  买量 */
 	
 	XChar side;													/**< 外盘:B,内盘:S */
-	XChar _field[7];
+	XChar _field[3];
+	XPrice IOPV;
 	XLong _field1[3];											/**< 64位对齐 */
 
 	XSeqNum version;                                  			/**<  行情每更新一次记录 */
@@ -538,7 +535,20 @@ typedef struct  {
     XNum secBuyTimes;											   /**< 在1秒内买的频次 */
     XNum lsecBuyTimes;                                             /**< 上一秒买的次数 */
 
-    XLong _field3;                           					 /**< 填充64位对齐 */
+    XMoney netBigTrdMoney;                           			  /**< 大单净买入额 */
+
+    XPrice auctionMidPx;											 /**< 集合竞价9:20价格 */
+    XChar  auctionFlag;												 /**< 集合竞价异动标志 */
+    XChar  auctionSave;												 /**< 集合竞价数据落地 */
+    XChar execType;													 /**< 触发行情更新的类型 @see eXOrdExecType */
+    XChar _field2;
+    XSumQty auctionMidQty;											 /**< 集合竞价9:20成交量 */
+    XSumQty auctionEndQty;											 /**< 集合竞价成交量 */
+    XSeqNum oldVersion;
+    XMoney execMoney;                                                /**< 触发行情更新的金额 */
+    XPrice execPrice;											     /**< 触发行情更新的价格 */
+    XChar _field4[4];
+    XLong _field3[2];
 } XSnapshotT, *pXSnapshotT;
 
 /**
@@ -547,11 +557,16 @@ typedef struct  {
  */
 typedef struct 
 {
-	XSeqNum version;
-	XShortTime updateTime;
-	XChar _field[4];
-	XLong _field2[6];
-}XUpdVerT,*pXUpdVerT;
+	XSeqNum version;					/**<行情处理过的版本 */
+	XLong triggerBit;					/**< 信号位 */
+	XShortTime triggerTime;				/**< 信号触发的时间 */
+	XPrice triggerPx;					/**< 信号触发的价格 */
+	XSumQty triggerQty;					/**< 信号触发的数量 */
+	XLong handleBit;					/**< 处理位 */
+	XNum kcursor1;						/**< 1分钟K线的位置 */
+	XNum kcursor5;						/**< 5分钟K线位置 */
+	XLong __field[2];
+}XSessioManageT,*pXSessionManageT;
 
 #define XSNAPSHOT_SIZE                                        (sizeof(XSnapshotT))
 
@@ -945,6 +960,34 @@ typedef struct  {
 	XLong _field3[2];
 } XTradeT, *pXTradeT;
 
+
+/** 盘中实时信号 */
+typedef struct
+{
+	XInt idx;													/**< 编号 */
+	XInt traday;												/**< 交易日 */
+	XChar market;												/**< 市场 */
+	XChar bsType;           									/**< 买卖信号 */
+	XChar signalType;       									/**< 信号类型 */
+	XChar _field1;
+	XSecurityId securityId; 									/**< 证券代码 */
+	XShortTime updateTime;  									/**< 行情触发时间 */
+	XPrice preClosePx;                                     		/**<  前收盘价 */
+	XPrice tradePx;
+	XPrice upperPx;												/**< 涨停价 */
+	XPrice lowerPx;
+	XPrice openPx;                                         		/**<  开盘价 */
+	XPrice highPx;                                         		/**<  最高价 */
+	XPrice lowPx;
+	XNum kcursor1;												/**< 1分钟K线数据位置 */
+	XNum kcursor5;												/**< 5分钟K线数据位置 */
+	XSeqNum version;											/**<行情处理过的版本 */
+	XSeqNum _bizIndex;											/**< 深圳委托和成交连续编号,用于下单时跟踪 */
+	XLongTime _recvTime;										/**<  落地行情时时间 */
+	XSumQty upperOfferOrdQty; 									/**< 累计涨停价卖委托数量，撤单扣减 */
+	XRemark remark;												/**< 备注 */
+}XSignalT;
+
 #define XTRADE_SIZE                                     (sizeof(XTradeT))
 /**
  * @brief 交易数据缓存
@@ -958,7 +1001,7 @@ typedef struct  {
 		XHoldT hold;								/**<  持仓 */
 		XCashT cash;								/**<  资金 */
 		XStrategyT strategy;						/**< 策略 */
-//		XSnapshotBaseT snapshot;					/**< 快照 */
+		XSignalT signal;                            /**< 信号数据 */
 	};
 } XTradeCache;
 
@@ -1015,7 +1058,8 @@ typedef struct
 typedef struct 
 {
 	pid_t pid;							/**< 进程号 */
-	XChar _field[4];
+	XChar isRunable;					/**< 是否启动进程 */
+	XChar _field[3];
 	void (*callBack)(XVoid* params); 	/**< 回调程序 */
 	XVoid* params;				/**< 回调参数 */
 	XChar processName[24];      		/**< 进程名 */
@@ -1030,11 +1074,13 @@ typedef struct
 {
 	XIdx idx;						/**< 编号 */
 	XChar blockNo[8];				/**< 板块编号 */
-	XChar blockName[24];			/**< 板块名称 */
+	XChar blockName[23];			/**< 板块名称 */
+	XChar blockType;				/**< 板块类型 */
 	XRatio zdf;						/**< 涨跌幅 */
 	XNum count;						/**< 板块数量 */
-    XIdx secIdx;					/**< 领涨股票 */
+    XIdx secIdx;					/**< 领涨股票索引 */
     XIdx beginIdx; 					/**< 开始索引 */
+    //TODO 涨停家数
 }XBlockT;
 
 /**
@@ -1049,8 +1095,50 @@ typedef struct
 	XChar _field[3];
 	XRatio zdf;                     /**< 个股涨跌幅 */
 	XSecurityId securityId;			/**< 证券代码 */
-	XLong _field2[3];
+	XShortTime updateTime;          /**< 更新时间 */
+	XChar _field2[4];
+	XLong _field3[2];
 }XBlockInfoT;
+
+/**
+ * @brief ETF产品信息
+ */
+typedef struct
+{
+	XIdx idx;
+	XFundId fundId;         			/**< ETF申赎代码 */
+	XSecurityId securityId;     		/**< ETF买卖代码 */
+	char market;						/**< 市场 */
+	char isCreateionAble;				/**< 是否允许申购 */
+	char isRedempAble;                  /**< 是否允许赎回 */
+	int compCnt;                        /**< 成分证券数目 */
+	int creRdmUnit;						/**< 每个篮子对应ETF份数 */
+	XMoney estiCashCmpoent;             /**< 个篮子的预估现金差额 */
+	XSumQty creationLimit;              /**< 单个账户当日累计申购总额限制 */
+	XSumQty redemLimit;					/**< 单个账户当日累计赎回总额限制 */
+	XIdx idxBegin;						/**< 成份股信息开始位置 */
+}XEtfT;
+
+/**
+ * @brief ETF成份股信息
+ */
+typedef struct
+{
+	XIdx idx;
+	XFundId fundId;         			/**< ETF申赎代码 */
+	XSecurityId securityId;     		/**< 成分证券代码代码 */
+	char market;						/**< 成分证券市场 */
+	char fundMkt;						/**< ETF基金市场 */
+	char subFlag;						/**< 现金替代标识 @see _eXEtfSubFlag */
+	char isTrdComponent;                /**< 是否是作为申赎对价的成份证券 */
+	XPrice prevClose;                   /**< 前收盘价 */
+	XQty qty;                           /**< 成分证券数量 */
+	XRatio premiumRatio;                /**< 申购溢价比例 */
+	XRatio discountRatio;				/**< 赎回折价比例 */
+	XMoney creationSubCash;             /**< 申购替代金额 */
+	XMoney redemptionSubCash;           /**< 赎回替代金额 */
+
+}XEtfCompT;
 
 #pragma pack(pop)
 

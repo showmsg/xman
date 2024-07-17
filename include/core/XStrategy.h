@@ -22,9 +22,15 @@ extern "C" {
 typedef enum 
 {
 	eXMidRobPlot = 1,				/**< 盘中抢板 */
+	eXHalfRobPlot = 2,              /**< 盘中半路 */
+	eXT0Plot = 3,                   /**< T0策略 */
+	eXGridPlot = 4,                  /**< 网格 */
 	eXAuctionRobPlot = 5,          /**< 集合竞价抢板 */
-	eXBondT0Plot = 6,			   /**< 可转债  */
-	eXTest     = 9                 /**< 测试策略 */
+	eXSellPlot = 6,			   		   /**< 卖出策略  */
+	eXBondPlot = 7,                  /**< 可转债策略 */
+	eXTest     = 9,                 /**< 测试策略 */
+	eXEtfPlot = 10                  /**< ETF */
+
 }XStrategyType;
 
 /**
@@ -59,14 +65,12 @@ typedef struct
 	XMoney buyMoney;										/**< 封单金额万元 */
 	XMoney buyCtrlMoney;									/**< 买一金额不足多少万元时撤单 */
 
-	//XBool bCtrlNoMoney;									/**< 下单后封单金额不足撤单,控制总开关 */
-
-	XNum bigBuyNums;										/**< 在涨停后大单买入笔数 TODO */
+	XNum batchSellTimes;										/**< 卖出时时间批次 */
 
 	XNum bigCtrlNums;										/**< 大单撤单且金额不足买入要求时 TODO */
 	
-	XRatio stopProfit;										/**< 止盈 */
-	XRatio stopLoss;										/**< 止损 */
+	XPrice highPx;										/**< 买入当天最高价 */
+	XPrice lowPx;										/**< 买入当天最低价 */
 
 	//在涨停前以涨停价买入大单金额累计超过3000万,在涨停时直接买入
 	//封单金额不足最大封单金额的0.1撤单
@@ -103,7 +107,7 @@ typedef struct
 	
 	XNum isUpperStop;										/**< 涨停打开后不买 */
 	
-	XNum isOpenStop;										/**< 开盘涨停不买 */
+	XNum isOpenStop;										/**< 开盘涨停继续买 */
 
 	XSumQty allowHoldQty;									/**< 允许最大持仓 */
 	
@@ -202,10 +206,19 @@ typedef struct
     XMoney __sellTrdAmt;                     /**< 回测时用 */
     XNum buyCntIdx;
     XNum sellCntIdx;
-    XShortTime cfmTime;                     /**< 确认时间 */
-    XChar _field1[4];
+    XLongTime cfmTime;                     /**< 确认时间 */
     XLongTime _calTime;
-    XLong _field2;                        /**< 填充64位对齐 */
+    XNum   errorno;						   /**< 错误码 */
+    XNum updateTime;                        /**< 买入时行情的时间 */
+
+    //处理订单发送与撤单
+    XNum ordPos;                           /**< 是否已经发出订单 TODO */
+    XNum ordCtrPos;						   /**< 是否已经撤单 */
+    XNum curPos;						   /**< 当前报单位置 */
+    XNum __field1;
+
+    XLong __field2[6];
+
 } XStrategyT;
 
 #define XSTRATEGY_SIZE                               (sizeof(XStrategyT))

@@ -74,7 +74,7 @@ extern XBool XCancelByLocalId(XStrategyT *pStrategy, XLocalId localid);
  * @param pStrategy    策略
  * @param signalCtrl   停止策略
  */
-extern XBool XCancelBuy(XStrategyT *pStrategy, XInt signalCtrl);
+extern XBool XCancelBuy(XStrategyT *pStrategy, XInt signalCtrl, XInt line);
 
 /**
  * @brief 撤销卖单
@@ -159,6 +159,27 @@ extern XBool CanSellSend(XStrategyT *pStrategy);
  * @return XPrice       委托价格
  */
 extern XPrice GetSlipSellPx (XPrice tradePx, XInt slip, XPrice lowerPrice, XPrice priceTick);
+
+
+#define XST_BUY_LOG(pStrategy, order) \
+		slog_debug(0,																			\
+						"[%s.%s-%lld]:<<<<<< 时间[%d],委托本地编号[%d],买卖[%d],委托价格[%.3f],委托数量[%d]",	\
+						pStrategy->setting.securityId, pStrategy->setting.market == eXMarketSha ? "SH":"SZ",							\
+						pStrategy->plotid, order._lastTime,  order.localId, order.bsType,	\
+						order.ordPrice * 0.0001, order.ordQty);
+
+#define XST_SELL_LOG(pStrategy, order) \
+		slog_debug(0,																			\
+						"[%s.%s-%lld]:>>>>>> 时间[%d],委托本地编号[%d],买卖[%d],委托价格[%.3f],委托数量[%d(%lld)]",	\
+						pStrategy->setting.securityId, pStrategy->setting.market == eXMarketSha ? "SH":"SZ",							\
+								pStrategy->plotid, order._lastTime,  order.localId, order.bsType,	\
+						order.ordPrice * 0.0001, order.ordQty,0);
+
+#define XST_CTRL_LOG(pStrategy, pOrgOrder) 									  \
+slog_debug(0, "[%s.%s-%lld]:XXXXXX 撤单编号[%d] 委托本地编号[%d],柜台编号[%lld],策略时间间隔[%d]",  \
+			pStrategy->setting.securityId, pStrategy->setting.market == eXMarketSha ? "SH":"SZ", 			\
+			pStrategy->plotid, pOrgOrder->request.clocalId, pOrgOrder->request.orgLocalId, pOrgOrder->request.orgOrdId, pStrategy->plot.ctrGapTime);
+
 
 #ifdef __cplusplus
 }

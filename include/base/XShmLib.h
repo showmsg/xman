@@ -13,9 +13,24 @@ extern "C" {
 
 #include "XTypes.h"
 #include <sys/shm.h>
+#include <sched.h>
 
 #define XSHM_NAME_LENGTH      (24)
 #define XSHM_PATH_LENGTH      (48)
+
+
+typedef volatile int spinlock_t;
+
+#define spinlock_lock(lock)                           \
+do {                                                  \
+    while (!__sync_bool_compare_and_swap(lock, 0, 1)) \
+        sched_yield();                                \
+} while(0)
+
+#define spinlock_unlock(lock) \
+do {                          \
+    *lock = 0;                \
+} while(0)
 
 /**
  * 共享内存模式
@@ -29,7 +44,7 @@ typedef enum eXShmType {
  * 读写控制
  */
 typedef enum _eXShmRw {
-	EXSHM_NONE = '0',     /**< 默认 */
+	EXSHM_DEAFULT = 0, 	/**< 初始状态 */
 	EXSHM_READ = '1',     /**<  可读 */
 	EXSHM_WRITE = '2'     /**<  不可读(正在写) */
 } eXShmRw;
@@ -68,6 +83,8 @@ typedef struct _XShmHeader {
 } XShmHeaderT, *pXShmHeaderT;
 
 #define XSHM_HEADER_SIZE                     (sizeof(XShmHeaderT))
+
+#define XGetShmName(shm)						(NULL == shm) ? "":(((XShmHeaderT*)shm)->name)
 
 /**
  * @brief 内存创建

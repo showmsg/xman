@@ -99,7 +99,7 @@ static void usage() {
 	printf("# -c [客户号]\n");
 	printf("# -m [市场 1:上海,2:深圳(默认)] \n");
 	printf("# -s [证券代码 6位] \n");
-	printf("# -b [买卖 1: 买入,2:卖出(默认),3:逆回购卖出, 4:撤单]\n");
+	printf("# -b [买卖 1: 买入,2:卖出(默认),3:逆回购卖出, 4:撤单,5:申购,6:赎回]\n");
 	printf("# -p [价格为实际价格*10000的整数]\n");
 	printf("# -q [买卖数量,超过最大数量进行拆单，逆回购数量为0使用所有资金进行逆回购操作]\n");
 	printf("# -l [撤单编号]\n");
@@ -159,6 +159,13 @@ static XInt HOrder(XChar* customer, XInt market, XChar* securityId, XQty qty, XI
 		case 4:
 			order.bsType = eXSell;
 			order.isCancel = true;
+			break;
+		case 5:
+			order.bsType = eXDeem;
+			break;
+		case 6:
+			order.bsType = eXRedeem;
+
 			break;
 		default:
 		break;

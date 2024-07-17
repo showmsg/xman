@@ -16,7 +16,7 @@ extern "C"
 
 
 
-#define getbit(Number, pos) ((Number) >> (pos)&1)) /** 用宏得到某数Number的某位的值 */
+#define getbit(Number, pos) ((Number) >> (pos)&1) /** 用宏得到某数Number的某位的值 */
 #define setbit(Number, pos) (Number)|=(1<<(pos)) /** 将Number的第pos位置1 */
 #define clrbit(Number, pos) (Number)&=~(1<<(pos)) /** 将Number的第pos位清0 */
 

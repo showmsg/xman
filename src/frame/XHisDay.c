@@ -38,7 +38,7 @@ static void trans_rsnap_bin2csv(XInt market, XChar *securityId) {
 					"gapTimes(ns),_channel,version,bizIndex,driveAskPx,driveBidPx,"
 					"bigBuyOrdCnt,bigSellOrdCnt,bigBuyOrdAmt,bigSellOrdAmt,bigBuyOrdQty,bigSellOrdQty,"
 					"bigBuyTrdAmt,bigSellTrdAmt,totalBuyOrdCnt,totalBuyOrdQty,totalBuyOrdAmt,"
-					"totalSellOrdCnt,totalSellOrdQty,totalSellOrdAmt,upperPx,lowerPx\n");
+					"totalSellOrdCnt,totalSellOrdQty,totalSellOrdAmt,upperPx,lowerPx,k1,k5\n");
 	while (!feof(fp)) {
 		fread(&snapshot, sizeof(XRSnapshotT), 1, fp);
 		if (NULL == securityId
@@ -53,7 +53,7 @@ static void trans_rsnap_bin2csv(XInt market, XChar *securityId) {
 							"%lld,%lld,%.3f,%lld,%lld,%.3f,%lld,%lld,%.3f,%lld,%lld,%.3f,%"
 							"lld,"
 							"%lld,%.3f,%lld,%lld,%lld,%d,%lld,%lld,%.3f,%.3f,%d,%d,%.2f,%.2f,%lld,%lld,%.2f,%.2f,"
-							"%d,%lld,%.2f,%d,%lld,%.2f,%.3f,%.3f\n",
+							"%d,%lld,%.2f,%d,%lld,%.2f,%.3f,%.3f,%d,%d\n",
 					snapshot.traday, snapshot.securityId,
 					snapshot.market == eXMarketSza ? "SZ" : "SH",
 					snapshot.preClosePx * XPRICE_DIV,
@@ -89,7 +89,10 @@ static void trans_rsnap_bin2csv(XInt market, XChar *securityId) {
 					snapshot.totalSellOrdCnt, snapshot.totalSellOrdQty,
 					snapshot.totalSellOrdAmt * XPRICE_DIV,
 					snapshot.upperPx * XPRICE_DIV,
-					snapshot.lowerPx * XPRICE_DIV);
+					snapshot.lowerPx * XPRICE_DIV,
+					snapshot.kcursor1,
+					snapshot.kcursor5
+					);
 		}
 	}
 
@@ -457,6 +460,59 @@ static void trans_tick_filter(XChar *fileInput, XChar *fileFilter,
 	fclose(fp);
 }
 
+//转换某个证券代码行情为bin
+static void trans_tick_sec_filter(XChar *fileInput, XChar *fileFilter,
+		XInt market, XChar* securityId) {
+	FILE *fp = NULL, *fpFilter = NULL;
+	XL2LT l2l;
+	XTickTradeT trade = { 0 };
+	XTickOrderT order = { 0 };
+//	XInt i = 0;
+
+	fp = fopen(fileInput, "rb");
+	if (NULL == fp) {
+		return;
+	}
+
+	fpFilter = fopen(fileFilter, "wb");
+	if (NULL == fpFilter) {
+		return;
+	}
+
+	while (!feof(fp)) {
+		fread(&l2l, sizeof(XL2LT), 1, fp);
+		switch (l2l.head.type) {
+		case eMTickOrder:
+			order = l2l.order;
+
+
+			if (market == order.market && NULL != securityId && 0 == strncmp(order.securityId, securityId, strlen(securityId))) {
+				fwrite(&l2l, sizeof(XL2LT), 1, fpFilter);
+				break;
+			}
+
+
+			break;
+		case eMTickTrade:
+			trade = l2l.trade;
+
+			if (market == trade.market && NULL != securityId && 0 == strncmp(trade.securityId, securityId, strlen(securityId)))
+			{
+					fwrite(&l2l, sizeof(XL2LT), 1, fpFilter);
+					break;
+			}
+			break;
+
+
+		default:
+			break;
+		}
+	}
+	fflush(fpFilter);
+	fclose(fpFilter);
+	fclose(fp);
+}
+
 static void trans_snapshot_filter(XChar *fileInput, XChar *fileFilter,
 		XChar *securityId) {
 	FILE *fp = NULL, *fpFilter = NULL;
@@ -497,68 +553,6 @@ static void trans_snapshot_filter(XChar *fileInput, XChar *fileFilter,
 	fclose(fp);
 }
 
-static void tick_check(XInt channel, XChar *file) {
-	FILE *fp = NULL;
-	XL2LT l2l;
-	XTickTradeT trade = { 0 };
-	XTickOrderT order = { 0 };
-	XSeqNum orderseq = 0;
-	XSeqNum tradeseq = 0;
-	XSeqNum bizIndex = 0;
-
-	fp = fopen(file, "rb");
-	if (NULL == fp) {
-		return;
-	}
-
-	while (!feof(fp)) {
-		fread(&l2l, sizeof(XL2LT), 1, fp);
-		switch (l2l.head.type) {
-		case eMTickOrder:
-			order = l2l.order;
-			if (order.channel != channel) {
-				break;
-			}
-			if (order.market == eXMarketSha) {
-				if (order.ordSeq != orderseq + 1) {
-					printf("[%d]频道委托丢失,当前[%lld],上次[%lld]\n", channel,
-							order.ordSeq, orderseq);
-				}
-				orderseq = order.ordSeq;
-			} else {
-				if (order.bizIndex != bizIndex + 1) {
-					printf("[%d]频道丢失,当前[%lld],上次[%lld]\n", channel,
-							order.bizIndex, bizIndex);
-				}
-				bizIndex = order.bizIndex;
-			}
-			break;
-		case eMTickTrade:
-			trade = l2l.trade;
-			if (trade.channel != channel) {
-				break;
-			}
-			if (trade.market == eXMarketSha) {
-				if (trade.tradeSeq != tradeseq + 1) {
-					printf("[%d]频道成交丢失,当前[%lld],上次[%lld]\n", channel,
-							trade.tradeSeq, tradeseq);
-				}
-				tradeseq = trade.tradeSeq;
-			} else {
-				if (trade.bizIndex != bizIndex + 1) {
-					printf("[%d]频道丢失,当前[%lld],上次[%lld]\n", channel,
-							trade.bizIndex, bizIndex);
-				}
-				bizIndex = trade.bizIndex;
-			}
-			break;
-		default:
-			break;
-		}
-	}
-
-	fclose(fp);
-}
 static void trans_trade_bin2csv() {
 	FILE *fp = NULL, *fptradecsv = NULL;
 	XTradeCache tradecache;
@@ -651,20 +645,22 @@ static void usage() {
 	printf("2. 转换交易回报数据为csv\n");
 	printf("./xhisday -t3\n");
 	printf("3. 转换落地行情数据为csv\n");
-	printf("./xhisday -t4\n");
+	printf("./xhisday -t4 -i../data/store/mktstore.bin -m2 -s002856\n");
 	printf("4. 以频道拆分当天行情文件\n");
 	printf(
 			"./xhisday -t5 -i../data/store/mktstore.bin -fsave.bin -c2014,801\n");
 	printf("5. 过滤落地快照数据为bin\n");
 	printf("./xhisday -t6 -i../data/mktstore.bin -fsave.bin\n");
-	printf("6. 检查频道是否丢单\n");
-	printf("./xhisday -t7 -c2 -imktstore.bin\n");
-	printf("7. 转换交易所快照为csv\n");
+	printf("6. 转换交易所快照为csv\n");
 	printf("./xhisday -t8 -isnapshot.bin -fsnapshot.csv\n");
-	printf("8. 查找bizIndex\n");
+	printf("7. 查找bizIndex\n");
 	printf("./xhisday -t9 -imktstore.bin -b6798655\n");
-	printf("9. 查找涨停价开始到bizIndex之间所有数据\n");
+	printf("8. 查找涨停价开始到bizIndex之间所有数据\n");
 	printf("./xhisday -t10 -imktsotre.bin -m1 -s600837 -c103400 -b6798655\n");
+
+	printf("9. 过滤某个证券代码的行情为bin\n");
+	printf("./xhisday -t7 -i../data/store/mktstore.bin -fsave.bin -m2 -s002857\n");
+
 
 	printf("###############################################################\n");
 }
@@ -761,13 +757,14 @@ int main(int argc, char *argv[]) {
 		}
 		break;
 
-		/** 分数据 */
+		/** 以多个频道拆分逐笔 */
 	case 5:
 		if (NULL == filterFile || 0 == strcmp(mktInput, filterFile)) {
 			usage();
 			break;
 		}
 		if (NULL != channel) {
+			printf("频道:%s\n", channel);
 			XSplit(channel, ",", strlen(channel), temp, &icnt);
 			trans_tick_filter(mktInput, filterFile, temp, icnt);
 		}
@@ -781,18 +778,17 @@ int main(int argc, char *argv[]) {
 		trans_snapshot_filter(mktInput, filterFile, securityId);
 		break;
 
-		// 检查频道数据有无丢失
+		// 过滤某个证券代码行情数据为bin
 	case 7:
 
-		if (channel == 0) {
-			break;
+		if (NULL == filterFile || NULL == securityId || 0 == strcmp(mktInput, filterFile)) {
+					usage();
+					break;
 		}
-		if (NULL != channel) {
-			tick_check(atoi(channel), mktInput);
-		} else {
-			tick_check(0, mktInput);
-		}
+		trans_tick_sec_filter(mktInput, filterFile, market, securityId);
+
 		break;
+		//转换交易所快照为csv
 	case 8:
 		if (NULL == filterFile || 0 == strcmp(mktInput, filterFile)) {
 			usage();
@@ -800,7 +796,7 @@ int main(int argc, char *argv[]) {
 		}
 		trans_snap_bin2csv(market, securityId, mktInput, filterFile);
 		break;
-		//找到对应biz数据并打印
+		//找到对应biz之后的逐笔数据
 	case 9:
 		if(0 == biz)
 		{
@@ -809,6 +805,7 @@ int main(int argc, char *argv[]) {
 		}
 		find_tick_by_biz(mktInput, biz);
 		break;
+		//从指定价格开始往后输出数据直到对应的biz
 	case 10:
 		if(NULL == securityId || NULL == channel)
 		{

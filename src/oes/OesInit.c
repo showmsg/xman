@@ -581,6 +581,163 @@ static int32 _OesApiSample_OnQryMarketStateCallback(
 	return 0;
 }
 
+
+/**
+ * 对ETF产品进行处理的回调函数
+ *
+ * @param   pSessionInfo    会话信息
+ * @param   pMsgHead        消息头
+ * @param   pMsgBody        消息体数据 @see OesMarketStateItemT
+ * @param   pCallbackParams 外部传入的参数
+ * @return  大于等于0，成功；小于0，失败（错误号）
+ */
+static int32 _OesApiSample_OnQryEtfCallback(
+		OesApiSessionInfoT *pSessionInfo, SMsgHeadT *pMsgHead, void *pMsgBody,
+		OesQryCursorT *pQryCursor, void *pCallbackParams) {
+	OesEtfItemT *etf = (OesEtfItemT*) pMsgBody;
+	XEtfT xetf = {0};
+
+	//转换为内部ETF
+	memcpy(xetf.fundId, etf->fundId, strlen(etf->fundId));
+	memcpy(xetf.securityId, etf->securityId, strlen(etf->securityId));
+	xetf.market = market_from_oes(etf->mktId);
+	xetf.isCreateionAble = etf->isCreationAble;
+	xetf.compCnt = etf->componentCnt;
+	xetf.creRdmUnit = etf->creRdmUnit;
+	xetf.estiCashCmpoent = etf->estiCashCmpoent;
+	xetf.creationLimit = etf->creationLimit;
+	xetf.redemLimit = etf->redemLimit;
+
+	slog_debug(0, "fundId:%s, securityId:%s,market:%d", xetf.fundId, xetf.securityId,
+			xetf.market);
+
+	XPutVEtf(&xetf);
+
+	int type = eTETF;
+	fwrite(&type, sizeof(int), 1, fpstatic);
+	fwrite(&xetf, sizeof(XEtfT), 1, fpstatic);
+	return 0;
+}
+
+/**
+ * 查询ETF产品
+ *
+ * @param   pQryChannel     查询通道的会话信息
+ * @param   mktId           市场代码 @see eOesMarketIdT
+ * @param   pSecurityId     股票代码 (char[6]/char[8])
+ * @return  大于等于0，成功；小于0，失败（错误号）
+ */
+static inline int32 _QueryEtf(OesApiSessionInfoT *pQryChannel,
+		uint8 mktId, const char *pSecurityId) {
+	OesQryEtfFilterT qryFilter = { NULLOBJ_OES_QRY_ETF_FILTER };
+	int32 ret = 0;
+
+	qryFilter.mktId = mktId;
+	if (pSecurityId) {
+		memcpy(qryFilter.fundId, pSecurityId, sizeof(qryFilter.fundId));
+	}
+
+	slog_info(1, "******************* 查询Etf ****************************");
+	ret = OesApi_QueryEtf(pQryChannel, &qryFilter,
+			_OesApiSample_OnQryEtfCallback, NULL);
+	if (ret < 0) {
+		slog_error(0,
+				"Query etf failure! " "ret[%d], mktId[%u], pSecurityId[%s]",
+				ret, mktId, pSecurityId ? pSecurityId : "NULL");
+		return ret;
+	} else {
+		slog_debug(0, "Query etf success! total count: [%d]", ret);
+	}
+
+	return 0;
+}
+
+/**
+ * 对ETF产品进行处理的回调函数
+ *
+ * @param   pSessionInfo    会话信息
+ * @param   pMsgHead        消息头
+ * @param   pMsgBody        消息体数据 @see OesMarketStateItemT
+ * @param   pCallbackParams 外部传入的参数
+ * @return  大于等于0，成功；小于0，失败（错误号）
+ */
+static int32 _OesApiSample_OnQryEtfCompCallback(
+		OesApiSessionInfoT *pSessionInfo, SMsgHeadT *pMsgHead, void *pMsgBody,
+		OesQryCursorT *pQryCursor, void *pCallbackParams) {
+	OesEtfComponentItemT *etf = (OesEtfComponentItemT*) pMsgBody;
+
+	XEtfCompT xetf;
+
+	memset(&xetf, 0, sizeof(XEtfCompT));
+	memcpy(xetf.fundId, etf->fundId, strlen(etf->fundId));
+	memcpy(xetf.securityId, etf->securityId, strlen(etf->securityId));
+	xetf.market = market_from_oes(etf->mktId);
+	xetf.fundMkt = market_from_oes(etf->fundMktId);
+	xetf.subFlag = etf->subFlag;
+	xetf.isTrdComponent = etf->isTrdComponent;
+	xetf.prevClose = etf->prevClose;
+	xetf.qty = etf->qty;
+	xetf.premiumRatio = etf->premiumRatio;
+	xetf.discountRatio = etf->discountRatio;
+	xetf.creationSubCash = etf->creationSubCash;
+	xetf.redemptionSubCash = etf->redemptionSubCash;
+
+	XPutVEtfComp(&xetf);
+
+	/**
+	slog_debug(0, "idx:%lld, fundId:%s, securityId:%s,market:%d, fundMkt:%d",
+			xetf.idx,
+			xetf.fundId, xetf.securityId,
+					xetf.market, xetf.fundMkt);
+	*/
+	//找到etf，更新首索引
+	XEtfT* pEtf = XFndVEtfByKey(xetf.fundMkt, xetf.fundId);
+	if(NULL != pEtf)
+	{
+		if(0 == pEtf->idxBegin)
+		{
+			pEtf->idxBegin = xetf.idx;
+			XUpdVEtf(pEtf);
+		}
+	}
+	int type = eTETFComp;
+	fwrite(&type, sizeof(int), 1, fpstatic);
+	fwrite(&xetf, sizeof(XEtfCompT), 1, fpstatic);
+
+	return 0;
+}
+
+/**
+ * 查询ETF成份股信息
+ *
+ * @param   pQryChannel     查询通道的会话信息
+ * @param   mktId           市场代码 @see eOesMarketIdT
+ * @param   pSecurityId     股票代码 (char[6]/char[8])
+ * @return  大于等于0，成功；小于0，失败（错误号）
+ */
+static inline int32 _QueryEtfComp(OesApiSessionInfoT *pQryChannel,
+		uint8 mktId, const char *pSecurityId) {
+	OesQryEtfComponentFilterT qryFilter = { NULLOBJ_OES_QRY_ETF_COMPONENT_FILTER };
+	int32 ret = 0;
+
+	if (pSecurityId) {
+		memcpy(qryFilter.fundId, pSecurityId, sizeof(qryFilter.fundId));
+	}
+
+	slog_info(1, "******************* 查询Etf成份股[%d-%s] ****************************", mktId, pSecurityId);
+	ret = OesApi_QueryEtfComponent(pQryChannel, &qryFilter,
+			_OesApiSample_OnQryEtfCompCallback, NULL);
+	if (ret < 0) {
+		slog_error(0,
+				"Query etf comp failure! " "ret[%d], mktId[%u], pSecurityId[%s]",
+				ret, mktId, pSecurityId ? pSecurityId : "NULL");
+		return ret;
+	} else {
+		slog_debug(0, "Query etf comp success! total count: [%d]", ret);
+	}
+
+	return 0;
+}
 /**
  * 查询市场状态
  *
@@ -759,6 +916,8 @@ XInt XOesInit(char* customer) {
 	XInt iret = -1;
 	int itradingday = -1;
 	int market = 0;
+	XInt i = -1;
+	XMonitorT *pMonitor = NULL;
 
 	OesApiClientEnvT cliEnv = { NULLOBJ_OESAPI_CLIENT_ENV };
 	XCustT *pCustomer = NULL;
@@ -774,6 +933,8 @@ XInt XOesInit(char* customer) {
 				eXCounterOes);
 		return (-1);
 	}
+
+	pMonitor = XFndVMonitor();
 
 	pMonitorTd = XFndVTdMonitor(pCustomer->customerId);
 
@@ -854,6 +1015,23 @@ XInt XOesInit(char* customer) {
 
 		_QueryIssue(&cliEnv.qryChannel, NULL, OES_MKT_ID_UNDEFINE,
 				OES_PRODUCT_TYPE_ALLOTMENT);
+
+
+		slog_info(1, "# 查询 ETF数据 ......")
+		_QueryEtf(&cliEnv.qryChannel, OES_MKT_ID_UNDEFINE, NULL);
+
+		//遍历ETF更新成分股信息
+		for(i = 0; i < pMonitor->iEtf; i++)
+		{
+			XEtfT* pEtf = XFndVEtfById(i + 1);
+			if(NULL == pEtf)
+			{
+				continue;
+			}
+			_QueryEtfComp(&cliEnv.qryChannel, mktid_to_oes(pEtf->market), pEtf->fundId);
+			usleep(10);
+
+		}
 
 		slog_info(1, "# 查询 沪深两市 所有股票持仓 ......");
 

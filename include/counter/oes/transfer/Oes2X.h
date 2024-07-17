@@ -29,6 +29,10 @@ extern int accttype_from_oes(int accttype);
 extern int market_from_oes(int market);
 
 /**
+ *
+ */
+extern int mktid_to_oes(int xman_mkt);
+/**
  * @brief XMan市场转为oes
  * @param accttype
  * @param market

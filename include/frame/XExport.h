@@ -65,20 +65,6 @@ extern XVoid XExpStock(XChar* expFile);
 extern XVoid XExpCash(XChar* expFile);
 
 /**
- * @brief 导出K1
- * @param 文件名
- * @return
- */
-extern XVoid XExpK1(XChar* expFile);
-
-/**
- * @brief 导出K2
- * @param 文件名
- * @return
- */
-extern XVoid XExpK5(XChar* expFile);
-
-/**
  * @brief 导出交易所原始快照行情
  * @param 文件名
  * @return
@@ -150,14 +136,6 @@ extern XVoid XExpSellHold(XChar *expFile);
 extern XVoid XPRLevelPrint(XChar market, XChar* securityId, XInt speed);
 
 extern XVoid XRSnapPrint (XChar market, XChar *securityId);
-/**
- * @brief 加载K线数据
- *
- * @param trade_file
- * @param knum
- * @return int
- */
-extern int read_kline(const char *trade_file, XInt knum);
 
 /**
  * @brief 加载历史成交量数据
@@ -195,7 +173,37 @@ extern XInt read_stock_convpx(XChar* convFile);
 
 extern XInt XGetUser(const char *userConf, XCustT pCust[]);
 
+/**
+ * @brief 打印快照信息
+ *
+ * @param market     市场
+ * @param securityId 证券代码
+ * @return
+ */
 extern XVoid XSnapPrint(XInt market, XChar* securityId);
+
+/**
+ * @brief 打印板块信息
+ *
+ * @param blockNo     板块代码
+ * @return
+ */
+extern XVoid XBlockPrint(XChar* blockNo);
+
+/**
+ * @brief 打印板块前8及前8涨跌幅股票
+ *
+ * @return
+ */
+extern XVoid XBlockTopPrint();
+
+extern XVoid XExpKLine1(XChar *expFile);
+
+extern XVoid XExpKLine5(XChar *expFile);
+
+extern XInt XReadKLine1(XChar* file);
+
+extern XInt XReadKLine5(XChar* file);
 
 #ifdef __cplusplus
 }

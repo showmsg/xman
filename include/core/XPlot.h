@@ -26,6 +26,11 @@ extern "C" {
 extern XPrice MA(XKLineT data[], int len, int curIdx, int calCnt);
 
 /**
+ * 标准差
+ */
+extern XPrice SD(XKLineT data[], int len, int curIdx, int calCnt, XPrice maPx);
+
+/**
  * @brief 能量潮指标（On Balance Volume，OBV）MA
  * 
  * @param data 

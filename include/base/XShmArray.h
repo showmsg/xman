@@ -13,12 +13,20 @@ extern "C" {
 #include "XShmLib.h"
 
 /**
+|写位置0:第一位,1:第二位;意思为当此位为0时,当前可写,1位置为可读;当此位置为1时,0位置可读，1位置可写;
+正在读的时候,更新为写的位置，读要加锁
+多读的情况不加锁,存在可能写的情况
+*/
+
+/**
  * @brief 数据内容
  */
 typedef struct _ArrayNode {
-	XChar rw;				/**< 读写控制位 @see eXShmRw */
+	XChar rw;				/**< 读写控制位 */
+//	XChar w;
 	XChar _field[7];
-	XLong _field2[7];       /**< 填充位 */
+	XLong version;
+	XLong _field2[6];       /**< 填充位 */
 	XChar data[];			/**< 数据 */
 } ArrayNodeT, *pArrayNodeT;
 
@@ -121,6 +129,8 @@ extern XVoid* XShmArrayInsertVBySize(XShmArrayT* array, XLLong index, void* data
  * @return 插入内存地址
  */
 extern XVoid* XShmArrayGet(XShmArrayT *array, XLLong index);
+
+extern XVoid* XShmArrayFind2(XShmArrayT* array, XLLong index, XVoid* out);
 
 /**
  * @brief 根据插入地址，找到插入数据

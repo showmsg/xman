@@ -48,6 +48,9 @@ extern XVoid XManShmDelete();
  */
 extern XMonitorT* XFndVMonitor();
 
+extern XMonitorT* XFndVMonitorS(char* filename, int line);
+
+extern XInt XPutVMonitor(XMonitorT* monitor);
 /**
  * @brief 获取监控信息
  * @return
@@ -707,6 +710,19 @@ extern XIdx XGetAppCnt();
 extern XProcInfoT* XFndVAppById(XIdx idx);
 
 /**
+ * @brief 放到进程管理列表
+ * @param procs
+ * @return
+ */
+extern XInt XPutVApp(XProcInfoT* procs);
+
+/**
+ * @brief 放到进程管理列表
+ * @param procsName进程名
+ * @return
+ */
+extern XInt XPubVAppByName(XCChar* procsName);
+/**
  * @brief 启动进程
  * @param procs
  * @param num
@@ -750,7 +766,7 @@ extern XIdx XPutOrderBookHash(XInt market, XChar *securityid);
  * @param securityid
  * @return
  */
-extern XOrderBookT* XFndVOrderBook(XInt market, XChar* securityid);
+extern XOrderBookT* XFndVOrderBookByKey(XInt market, XChar* securityid);
 
 /**
  * @brief 找到订单薄信息
@@ -1147,24 +1163,33 @@ extern XInt XAppStart(XProcInfoT procs[], XInt num);
 extern XInt XAppStop();
 
 /**
- * @brief 查找快照
+ * @brief 会话数据管理
  * 
  * @param market 
  * @param securityid 
  * @return XVoid* 
  */
-extern XVoid* XFndVUSnapshotByKey(XInt market, XChar *securityid);
+extern XVoid* XFndVSessionManByKey(XInt sesionId, XInt market, XChar *securityid);
 
 /**
- * @brief 更新快照
+ * @brief 会话数据管理
  * 
  * @param market 
  * @param securityid 
  * @param version 
  * @return XInt 
  */
-extern XInt XPutOrUpdVUSnapshot(XInt market, XChar* securityid, XVoid* version);
+extern XInt XPutOrUpdVSessionMan(XInt sessionId, XInt market, XChar* securityid, XVoid* version);
 
+/**
+ * @brief 会话数据管理
+ *
+ * @param market
+ * @param securityid
+ * @param version
+ * @return XInt
+ */
+extern XInt XRmvSessionManByKey(XInt sessionId, XInt market, XChar *security);
 /**
  * @brief 更新频道数据
  * 
@@ -1347,7 +1372,7 @@ extern XInt XPutOrUpdVBCashByKey(XCashT *cash);
 
 
 
-typedef void (*XPcb)(XSnapshotNotifyT* notify);
+typedef void (*XPcb)(XSignalT* notify);
 
 #define XTHRD_NAME_LEN         (24)
 typedef struct 
@@ -1357,6 +1382,24 @@ typedef struct
 }XParamT;
 
 extern void SetCallback(XChar *thrdName, XPcb callback);
+
+extern XVoid* XGetTradeCache();
+
+extern XEtfT* XFndVEtfById(XIdx idx);
+
+extern XIdx XFndEtfByKey(XInt market, XChar* securityId);
+
+extern XEtfT* XFndVEtfByKey(XInt market, XChar* securityId);
+
+extern XInt XPutVEtf(XEtfT* pEtf);
+
+extern XInt XUpdVEtf(XEtfT* pEtf);
+
+extern XEtfCompT* XFndVEtfCompById(XIdx idx);
+
+extern XInt XPutVEtfComp(XEtfCompT* pEtf);
+
+extern XInt XUpdVEtfComp(XEtfCompT* pEtf);
 
 #ifdef __cplusplus
 }

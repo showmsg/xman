@@ -29,11 +29,29 @@ inline int accttype_from_oes(int accttype) {
 }
 
 inline int market_from_oes(int market) {
-	if (market == OES_MKT_SH_ASHARE) {
-		return (eXMarketSha);
-	} else {
-		return (eXMarketSza);
+	int xmkt = -1;
+
+	switch(market)
+	{
+	case OES_MKT_SH_ASHARE:
+		xmkt = eXMarketSha;
+		break;
+	case OES_MKT_SZ_ASHARE:
+		xmkt = eXMarketSza;
+		break;
+	case OES_MKT_EXT_HK:
+		xmkt = eXMarketHK;
+		break;
+	default:
+		break;
 	}
+	return (xmkt);
+}
+
+inline int mktid_to_oes(int xman_mkt)
+{
+
+	return ((xman_mkt == eXMarketSha) ? OES_EXCH_SSE : OES_EXCH_SZSE);
 }
 
 /**
@@ -366,7 +384,7 @@ inline int bstype_to_oes(int accttype, int producttype, int bstype) {
 
 	/** 赎回 */
 	else if (bstype == eXRedeem) {
-		bs_type = OES_BS_TYPE_CREATION;
+		bs_type = OES_BS_TYPE_REDEMPTION;
 	}
 
 	return (bs_type);

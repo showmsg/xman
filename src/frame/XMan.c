@@ -212,12 +212,21 @@ static void init() {
 
 	XManShmInit();
 
+	//初始化监控数据
+	if(NULL == XFndVMonitor())
+	{
+		pMonitor = XGetVMonitor();
+		slog_warn(0, "未初始化监控数据");
+		pMonitor->idx = 1;
+		XPutVMonitor(pMonitor);
+	}
+
 	slog_info(0, ">>>>>> 2. 初始化客户信息......");
 	initcust();
 
 	slog_info(0, ">>>>>> 3. 初始化柜台......");
 
-	pMonitor = XFndVMonitor();
+	pMonitor = XFndVMonitorS(__FILE__, __LINE__);
 	if (NULL == pMonitor) {
 		return;
 	}
@@ -252,18 +261,17 @@ static void init() {
 	slog_info(0, ">>>>>> 3.0 加载转股价.....");
 	read_stock_convpx(XMAN_IMP_CONVPX);
 	/** 快速重构读取历史K线数据 */
-#ifdef __XMAN_FAST_REBUILD__
 	//加载历史数据
 	slog_info(0, ">>>>>> 3.1 加载历史K1线数据......");
-	read_kline(XMAN_IMP_KSNAPSHOT_1, 5);
+	XReadKLine1(XMAN_IMP_KSNAPSHOT_1);
 	slog_info(0, ">>>>>> 3.2 加载历史K5线数据......");
-	read_kline(XMAN_IMP_KSNAPSHOT_5, 60);
+	XReadKLine5(XMAN_IMP_KSNAPSHOT_5);
 	slog_info(0, ">>>>>> 3.3 加载昨日收盘数据......");
 	read_hissnapshot(XMAN_IMP_HSNAPSHOT);
 	slog_info(0, ">>>>>> 3.4 加载板块数据......");
 	read_block(XMAN_IMP_BLOCK);
 	read_blockinfo(XMAN_IMP_BLOCKINFO);
-#endif
+
 }
 static XInt read_subfile(XChar *subfile) {
 	XMarketSecurityT mktsec = { 0 };
@@ -324,7 +332,7 @@ static void start(XBindParamT bindparam[]) {
 
 	init();
 
-	pMonitor = XFndVMonitor();
+	pMonitor = XFndVMonitorS(__FILE__, __LINE__);
 	if (NULL == pMonitor) {
 		return;
 	}
@@ -336,10 +344,12 @@ static void start(XBindParamT bindparam[]) {
 	}
 
 	memcpy(g_proc[iProc].processName, "xmanlg", strlen("xmanlg"));
+	g_proc[iProc].isRunable = true;
 	g_proc[iProc++].callBack = xlog;
 
 	memcpy(g_proc[iProc].processName, "xorden", strlen("xorden"));
 	g_proc[iProc].callBack = XOrdeng;
+	g_proc[iProc].isRunable = true;
 	g_proc[iProc++].params = &bindparam[4];
 
 	for (i = pMonitor->iTCust - 1; i >= 0; i--) {
@@ -351,6 +361,7 @@ static void start(XBindParamT bindparam[]) {
 		case eXCounterOes:
 			memcpy(g_proc[iProc].processName, "oesmkt", strlen("oesmkt"));
 			g_proc[iProc].callBack = XOesMkt;
+			g_proc[iProc].isRunable = true;
 			g_proc[iProc++].params = &bindparam[5];
 			break;
 		case eXCounterCtp:
@@ -374,8 +385,9 @@ static void start(XBindParamT bindparam[]) {
 			if (!pCust->cpuid) {
 				pCust->cpuid = bindparam[6].cpuid;
 			}
-			sprintf(g_proc[iProc].processName, "oestrd-%s", pCust->customerId);
+			sprintf(g_proc[iProc].processName, "*%s", pCust->customerId);
 			g_proc[iProc].callBack = XOesTrd;
+			g_proc[iProc].isRunable = true;
 			g_proc[iProc++].params = pCust;
 			break;
 		case eXCounterCtp:
@@ -393,30 +405,36 @@ static void start(XBindParamT bindparam[]) {
 
 	memcpy(g_proc[iProc].processName, "xshbld", strlen("xshbld"));
 	g_proc[iProc].callBack = XShRebuild;
+	g_proc[iProc].isRunable = true;
 	g_proc[iProc++].params = &bindparam[0];
 
 	memcpy(g_proc[iProc].processName, "xszbld", strlen("xszbld"));
 	g_proc[iProc].callBack = XSzRebuild;
+	g_proc[iProc].isRunable = true;
 	g_proc[iProc++].params = &bindparam[1];
 
 #ifdef __XMAN_FAST_REBUILD__
 
 	memcpy(g_proc[iProc].processName, "xstore", strlen("xstore"));
 	g_proc[iProc].callBack = XStoreSnap;
+	g_proc[iProc].isRunable = true;
 	g_proc[iProc++].params = &bindparam[2];
 
 	memcpy(g_proc[iProc].processName, "xetick", strlen("xetick"));
 	g_proc[iProc].callBack = XStoreTick;
+	g_proc[iProc].isRunable = true;
 	g_proc[iProc++].params = &bindparam[7];
 
 #else
 
 	memcpy(g_proc[iProc].processName, "xstore", strlen("xstore"));
 	g_proc[iProc].callBack = XStoreSnap;
+	g_proc[iProc].isRunable = true;
 	g_proc[iProc++].params = &bindparam[2];
 
 	memcpy(g_proc[iProc].processName, "xetick", strlen("xetick"));
 	g_proc[iProc].callBack = XStoreTick;
+	g_proc[iProc].isRunable = true;
 	g_proc[iProc++].params = &bindparam[7];
 
 #endif
@@ -448,8 +466,8 @@ static void export() {
 	XExpHold(XMAN_DATA_HOLD);
 	XExpStrategy(XMAN_DATA_STRATEGY);
 	XExpCash(XMAN_DATA_CASH);
-	XExpK1(XMAN_IMP_KSNAPSHOT_1);
-	XExpK5(XMAN_IMP_KSNAPSHOT_5);
+	XExpKLine1(XMAN_IMP_KSNAPSHOT_1);
+	XExpKLine5(XMAN_IMP_KSNAPSHOT_5);
 
 	XExpBlock(XMAN_DATA_BLOCK);
 	XExpBlockInfo(XMAN_DATA_BLOCKINFO);

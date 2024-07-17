@@ -924,12 +924,11 @@ INPUT                  = readme.md \
                          changelog.md \
                          include/core/XBase.h \
                          include/core/XBus.h \
-                         include/core/XCommon.h \
+                         include/core/XCom.h \
                          include/core/XDataStruct.h \
                          include/core/XDataType.h \
                          include/core/XError.h \
                          include/core/XStrategy.h \
-                         include/core/XExport.h \
                          capi.md
 
 # This tag can be used to specify the character encoding of the source files

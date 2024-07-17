@@ -34,7 +34,7 @@ Trade (XMonitorT *pMonitor, XMonitorMdT *pMonitorMd)
 
       pStock = XFndVStockByKey (pStrategy->setting.market,
                                 pStrategy->setting.securityId);
-      if (NULL == pStock)
+      if (NULL == pStock || eXSecPause == pStock->secStatus || eXSecTmpPause == pStock->secStatus)
         {
           continue;
         }
@@ -61,6 +61,7 @@ main (int argc, char *argv[])
     }
   pMonitorMd = XFndVMdMonitor (eXExchSec);
 
+  XPubVAppByName("xbasket");
   slog_info (0, "xbasket启动中......");
   for (;;)
     {

@@ -12,7 +12,7 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_CSV_LINE_BUFLEN  (1024)
+#define MAX_CSV_LINE_BUFLEN  (2048)
 #define MAX_CSV_HEADER    (256)
 #define MAX_FIELD_LENGTH  (128)
 

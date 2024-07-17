@@ -14,8 +14,6 @@ logs/*
 data/export/*
 data/kline/*
 data/store/*
-libs/*.a
-libs/dll/*.so
 *.log
 *.pyc
 *.tar

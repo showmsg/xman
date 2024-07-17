@@ -9,6 +9,7 @@
 extern "C" {
 #endif
 
+#include <pthread.h>
 #include "XShmLib.h"
 
 /**
@@ -31,7 +32,7 @@ typedef struct _RingData {
 typedef struct _XShmRingBuff {
 	XShmHeaderT header;
 	XUInt blockSize;    						/**<  数据区块大小 */
-	XChar _field[4];							//填充位
+	spinlock_t  spin;							//spin lock
 	XLLong slowReadPos;							/**< 最慢的读 */
 	XLLong maxReadablePos;						/**< 最大的读位置 */
 	XLLong writePos;   							/**<  写索引位置 */
@@ -97,6 +98,14 @@ extern XInt XShmRingGetNextRead(XShmRingBuffT* pRingBuff);
  * @return 数据内存地址
  */
 extern XVoid* XShmRingPop(XShmRingBuffT* pRingBuff, XInt readId);
+
+//获取数据时直接拷贝出数据
+#define XShmRingPopC(pRingBuff, readId, T, data)						\
+{																		\
+	XVoid* memData = XShmRingPop(pRingBuff, readId);					\
+	memcpy(data, memData, sizeof(T));									\
+	asm volatile ("":::"memory");										\
+}
 
 /**
  * @brief 从队列中推出数据
